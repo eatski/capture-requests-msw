@@ -9,15 +9,47 @@ export interface CapturedRequest {
 
 export type CapturedRequestsHandler = (requests: CapturedRequest[]) => void
 
+export interface AutoCheckpointOptions {
+  /**
+   * リクエストがない状態がこのミリ秒数続いた場合に自動でチェックポイントを作成します。
+   */
+  timeoutMs: number
+}
+
 /**
  * リクエストをバッチでキャプチャし、指定されたタイミングで処理するクラス。
  */
 export class RequestCapturer {
   private currentBatch: CapturedRequest[] = []
   private handler: CapturedRequestsHandler
+  private autoCheckpointOptions?: AutoCheckpointOptions
+  private timeoutId?: NodeJS.Timeout
 
-  constructor(handler: CapturedRequestsHandler) {
+  constructor(handler: CapturedRequestsHandler, autoCheckpointOptions?: AutoCheckpointOptions) {
     this.handler = handler
+    this.autoCheckpointOptions = autoCheckpointOptions
+  }
+
+  /**
+   * 自動チェックポイントのタイマーを開始します。
+   */
+  private startAutoCheckpointTimer(): void {
+    if (!this.autoCheckpointOptions) return
+    
+    this.clearAutoCheckpointTimer()
+    this.timeoutId = setTimeout(() => {
+      this.checkpoint()
+    }, this.autoCheckpointOptions.timeoutMs)
+  }
+
+  /**
+   * 自動チェックポイントのタイマーをクリアします。
+   */
+  private clearAutoCheckpointTimer(): void {
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId)
+      this.timeoutId = undefined
+    }
   }
 
   /**
@@ -26,6 +58,9 @@ export class RequestCapturer {
    */
   addRequest(request: CapturedRequest): void {
     this.currentBatch.push(request)
+    
+    // 自動チェックポイントのタイマーを再開始
+    this.startAutoCheckpointTimer()
   }
 
   /**
@@ -33,6 +68,8 @@ export class RequestCapturer {
    * リクエストはURLとメソッドでソートされてからハンドラに渡されます。
    */
   checkpoint(): void {
+    this.clearAutoCheckpointTimer()
+    
     if (this.currentBatch.length > 0) {
       const sortedRequests = [...this.currentBatch].sort((a, b) => {
         if (a.url === b.url) {
@@ -50,6 +87,7 @@ export class RequestCapturer {
    * 現在のバッチをリセットします。処理されなかったリクエストは破棄されます。
    */
   reset(): void {
+    this.clearAutoCheckpointTimer()
     this.currentBatch = []
   }
 }

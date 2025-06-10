@@ -9,6 +9,7 @@
 - バッチキャプチャ: 複数のHTTPリクエストを一括でキャプチャし、まとめて処理できます。
 - Fallthrough: 実際のネットワークリクエストはそのまま通します。
 - カスタム処理: 独自のキャプチャ関数を注入可能です。
+- 自動チェックポイント: 指定時間経過後に自動でリクエストを処理できます。
 - シンプル: method、url、bodyのみをキャプチャします。
 - テスト特化: テスト環境での使用に最適化されています。
 
@@ -48,6 +49,43 @@ await fetch('https://api.example.com/users')
 capturer.checkpoint()
 
 // リクエストがキャプチャされている
+console.log(capturedRequests)
+// [{ method: 'GET', url: 'https://api.example.com/users' }]
+
+server.close()
+```
+
+### 自動チェックポイント機能の例
+
+```typescript
+import { setupServer } from 'msw/node'
+import { RequestCapturer, createRequestsCaptureHandler, type CapturedRequest } from 'capture-requests-msw'
+
+// キャプチャされたリクエストを保存する配列
+const capturedRequests: CapturedRequest[] = []
+
+// 自動チェックポイントを1秒（1000ms）で設定
+const capturer = new RequestCapturer((requests) => {
+  capturedRequests.push(...requests)
+}, { timeoutMs: 1000 })
+
+// ハンドラーを作成
+const handler = createRequestsCaptureHandler(capturer)
+
+// MSWサーバーを作成・起動
+const server = setupServer(handler)
+server.listen()
+
+// HTTPリクエストを実行
+await fetch('https://api.example.com/users')
+
+// 1秒後に自動でチェックポイントが実行される
+// 手動でcheckpoint()を呼ぶ必要がない
+
+// 少し待つ
+await new Promise(resolve => setTimeout(resolve, 1100))
+
+// リクエストが自動で処理されている
 console.log(capturedRequests)
 // [{ method: 'GET', url: 'https://api.example.com/users' }]
 
@@ -156,6 +194,33 @@ describe('API Tests', () => {
       server.close()
     }
   })
+
+  it('自動チェックポイント機能を使う', async () => {
+    const capturedRequests: CapturedRequest[] = []
+    
+    // 自動チェックポイントを100msで設定
+    const capturer = new RequestCapturer((requests) => {
+      capturedRequests.push(...requests)
+    }, { timeoutMs: 100 })
+    
+    // ハンドラーを作成
+    const handler = createRequestsCaptureHandler(capturer)
+    const server = setupServer(handler)
+    server.listen()
+    
+    try {
+      await fetch('https://api.example.com/users')
+      
+      // 110ms待機で自動チェックポイントが実行される
+      await new Promise(resolve => setTimeout(resolve, 110))
+      
+      expect(capturedRequests).toHaveLength(1)
+      expect(capturedRequests[0].method).toBe('GET')
+      expect(capturedRequests[0].url).toBe('https://api.example.com/users')
+    } finally {
+      server.close()
+    }
+  })
 })
 ```
 
@@ -191,14 +256,28 @@ interface CapturedRequest {
 type CapturedRequestsHandler = (requests: CapturedRequest[]) => void
 ```
 
+### `AutoCheckpointOptions`
+
+自動チェックポイント機能の設定を定義するインターフェースです。
+
+```typescript
+interface AutoCheckpointOptions {
+  timeoutMs: number  // リクエストがない状態がこのミリ秒数続いた場合に自動でチェックポイントを作成
+}
+```
+
 ### `RequestCapturer`
 
 リクエストのキャプチャと処理を行うクラスです。
 
 **コンストラクタ:**
 ```typescript
-new RequestCapturer(handler: CapturedRequestsHandler)
+new RequestCapturer(handler: CapturedRequestsHandler, autoCheckpointOptions?: AutoCheckpointOptions)
 ```
+
+**パラメータ:**
+- `handler: CapturedRequestsHandler` - リクエストを処理するハンドラ関数
+- `autoCheckpointOptions?: AutoCheckpointOptions` - オプション: 自動チェックポイント設定
 
 **メソッド:**
 - `addRequest(request: CapturedRequest): void` - リクエストを内部バッファに追加します。
@@ -210,6 +289,7 @@ new RequestCapturer(handler: CapturedRequestsHandler)
 - **ソート機能**: リクエストはURLとメソッドでソートされ、処理の一貫性を保ちます。
 - **グループ処理**: 明示的な処理タイミングの制御が可能です。
 - **バッファリング**: リクエストは一時的にバッファリングされ、まとめて処理されます。
+- **自動チェックポイント**: 指定時間経過後の自動処理が可能です。
 - **フレキシブルな処理**: カスタムハンドラによって柔軟な処理が可能です。
 
 ## ライセンス
