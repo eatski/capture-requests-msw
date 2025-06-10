@@ -33,7 +33,7 @@ export function createCaptureHandler(captureFn: RequestCaptureFn): RequestHandle
     // キャプチャ関数を呼び出し
     captureFn(capturedRequest)
     
-    // 実際のネットワークリクエストを通す
-    return passthrough()
+    // 別のハンドラーに処理を委譲
+    return undefined
   })
 }

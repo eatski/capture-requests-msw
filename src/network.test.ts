@@ -1,52 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import { setupServer } from 'msw/node'
+import { http, HttpResponse } from 'msw'
 import { createCaptureHandler, type CapturedRequest, type RequestCaptureFn } from './index'
 
-// 実際のネットワークリクエストをテストする関数
-async function fetchRealAPI() {
-  try {
-    const response = await fetch('https://jsonplaceholder.typicode.com/posts/1')
-    if (!response.ok) {
-      throw new Error('Failed to fetch')
-    }
-    return response.json()
-  } catch (error) {
-    // テスト環境では実際のネットワークリクエストが失敗することが多いので、
-    // モックデータを返す
-    return {
-      id: 1,
-      title: 'Mock post title',
-      body: 'Mock post body',
-      userId: 1
-    }
-  }
-}
-
-async function createUser(userData: { name: string; email: string }) {
-  try {
-    const response = await fetch('https://httpbin.org/post', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(userData),
-    })
-    if (!response.ok) {
-      throw new Error('Failed to create user')
-    }
-    return response.json()
-  } catch (error) {
-    // テスト環境ではモックデータを返す
-    return {
-      id: '123',
-      ...userData,
-      createdAt: new Date().toISOString()
-    }
-  }
-}
-
 describe('Capture Requests MSW Library Tests', () => {
-  it('GETリクエストがキャプチャされる', async () => {
+  it('リクエストをキャプチャしてfallthroughで他のハンドラーに委譲する', async () => {
     const capturedRequests: CapturedRequest[] = []
     
     // キャプチャ関数を作成
@@ -54,25 +12,86 @@ describe('Capture Requests MSW Library Tests', () => {
       capturedRequests.push(request)
     }
     
-    // ライブラリを使ってハンドラーを作成
-    const handler = createCaptureHandler(captureFn)
-    const server = setupServer(handler)
+    // ユーザー側で定義するカスタムハンドラー
+    const userHandler = http.get('https://api.example.com/users', () => {
+      return HttpResponse.json({ id: 1, name: 'テストユーザー' })
+    })
+    
+    // キャプチャハンドラーを最初に、ユーザーハンドラーを後に配置
+    const captureHandler = createCaptureHandler(captureFn)
+    const server = setupServer(captureHandler, userHandler)
     server.listen()
     
     try {
-      await fetchRealAPI()
+      const response = await fetch('https://api.example.com/users')
+      const data = await response.json()
       
+      // リクエストがキャプチャされている
       expect(capturedRequests).toHaveLength(1)
       expect(capturedRequests[0]).toEqual({
         method: 'GET',
-        url: 'https://jsonplaceholder.typicode.com/posts/1'
+        url: 'https://api.example.com/users'
+      })
+      
+      // ユーザーハンドラーのレスポンスが返されている
+      expect(data).toEqual({ id: 1, name: 'テストユーザー' })
+    } finally {
+      server.close()
+    }
+  })
+
+  it('POSTリクエストをキャプチャしてfallthroughで他のハンドラーに委譲する', async () => {
+    const capturedRequests: CapturedRequest[] = []
+    
+    // キャプチャ関数を作成
+    const captureFn: RequestCaptureFn = (request) => {
+      capturedRequests.push(request)
+    }
+    
+    // ユーザー側で定義するカスタムハンドラー
+    const userHandler = http.post('https://api.example.com/users', async ({ request }) => {
+      const body = await request.json() as Record<string, any>
+      return HttpResponse.json({ 
+        id: 123, 
+        ...body,
+        createdAt: '2023-01-01T00:00:00Z'
+      }, { status: 201 })
+    })
+    
+    // キャプチャハンドラーを最初に、ユーザーハンドラーを後に配置
+    const captureHandler = createCaptureHandler(captureFn)
+    const server = setupServer(captureHandler, userHandler)
+    server.listen()
+    
+    try {
+      const userData = { name: '田中太郎', email: 'tanaka@example.com' }
+      const response = await fetch('https://api.example.com/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      })
+      const data = await response.json()
+      
+      // リクエストがキャプチャされている
+      expect(capturedRequests).toHaveLength(1)
+      expect(capturedRequests[0].method).toBe('POST')
+      expect(capturedRequests[0].url).toBe('https://api.example.com/users')
+      expect(capturedRequests[0].body).toBe(JSON.stringify(userData))
+      
+      // ユーザーハンドラーのレスポンスが返されている
+      expect(response.status).toBe(201)
+      expect(data).toEqual({
+        id: 123,
+        name: '田中太郎',
+        email: 'tanaka@example.com',
+        createdAt: '2023-01-01T00:00:00Z'
       })
     } finally {
       server.close()
     }
   })
 
-  it('POSTリクエストとボディがキャプチャされる', async () => {
+  it('複数のリクエストがキャプチャされて適切なハンドラーに委譲される', async () => {
     const capturedRequests: CapturedRequest[] = []
     
     // キャプチャ関数を作成
@@ -80,54 +99,50 @@ describe('Capture Requests MSW Library Tests', () => {
       capturedRequests.push(request)
     }
     
-    // ライブラリを使ってハンドラーを作成
-    const handler = createCaptureHandler(captureFn)
-    const server = setupServer(handler)
+    // ユーザー側で定義する複数のハンドラー
+    const getUserHandler = http.get('https://api.example.com/users/:id', ({ params }) => {
+      return HttpResponse.json({ id: params.id, name: `ユーザー${params.id}` })
+    })
+    
+    const getPostsHandler = http.get('https://api.example.com/posts', () => {
+      return HttpResponse.json([
+        { id: 1, title: '投稿1' },
+        { id: 2, title: '投稿2' }
+      ])
+    })
+    
+    // キャプチャハンドラーを最初に、他のハンドラーを後に配置
+    const captureHandler = createCaptureHandler(captureFn)
+    const server = setupServer(captureHandler, getUserHandler, getPostsHandler)
     server.listen()
     
     try {
-      const userData = {
-        name: '田中太郎',
-        email: 'tanaka@example.com'
-      }
+      // 複数のリクエストを実行
+      const userResponse = await fetch('https://api.example.com/users/1')
+      const postsResponse = await fetch('https://api.example.com/posts')
       
-      await createUser(userData)
+      const userData = await userResponse.json()
+      const postsData = await postsResponse.json()
       
-      expect(capturedRequests).toHaveLength(1)
-      expect(capturedRequests[0].method).toBe('POST')
-      expect(capturedRequests[0].url).toBe('https://httpbin.org/post')
-      expect(capturedRequests[0].body).toBe(JSON.stringify(userData))
-    } finally {
-      server.close()
-    }
-  })
-
-  it('複数のリクエストがすべてキャプチャされる', async () => {
-    const capturedRequests: CapturedRequest[] = []
-    
-    // キャプチャ関数を作成
-    const captureFn: RequestCaptureFn = (request) => {
-      capturedRequests.push(request)
-    }
-    
-    // ライブラリを使ってハンドラーを作成
-    const handler = createCaptureHandler(captureFn)
-    const server = setupServer(handler)
-    server.listen()
-    
-    try {
-      await fetchRealAPI()
-      await createUser({ name: 'Test User', email: 'test@example.com' })
-      
+      // 両方のリクエストがキャプチャされている
       expect(capturedRequests).toHaveLength(2)
       expect(capturedRequests[0].method).toBe('GET')
-      expect(capturedRequests[1].method).toBe('POST')
+      expect(capturedRequests[0].url).toBe('https://api.example.com/users/1')
+      expect(capturedRequests[1].method).toBe('GET')
+      expect(capturedRequests[1].url).toBe('https://api.example.com/posts')
+      
+      // 適切なハンドラーのレスポンスが返されている
+      expect(userData).toEqual({ id: '1', name: 'ユーザー1' })
+      expect(postsData).toEqual([
+        { id: 1, title: '投稿1' },
+        { id: 2, title: '投稿2' }
+      ])
     } finally {
       server.close()
     }
   })
 
-  it('カスタム処理でリクエストを加工できる', async () => {
+  it('キャプチャハンドラーでリクエストをキャプチャしてカスタム処理を実行できる', async () => {
     const processedRequests: any[] = []
     
     // カスタムキャプチャ関数を作成
@@ -142,19 +157,29 @@ describe('Capture Requests MSW Library Tests', () => {
       })
     }
     
-    // ライブラリを使ってハンドラーを作成
-    const handler = createCaptureHandler(captureFn)
-    const server = setupServer(handler)
+    // ユーザー側で定義するハンドラー
+    const userHandler = http.get('https://api.example.com/data', () => {
+      return HttpResponse.json({ message: 'データ取得成功' })
+    })
+    
+    // キャプチャハンドラーを最初に、ユーザーハンドラーを後に配置
+    const captureHandler = createCaptureHandler(captureFn)
+    const server = setupServer(captureHandler, userHandler)
     server.listen()
     
     try {
-      await fetchRealAPI()
+      const response = await fetch('https://api.example.com/data')
+      const data = await response.json()
       
+      // カスタム処理が実行されている
       expect(processedRequests).toHaveLength(1)
       expect(processedRequests[0].method).toBe('GET')
-      expect(processedRequests[0].pathname).toBe('/posts/1')
+      expect(processedRequests[0].pathname).toBe('/data')
       expect(processedRequests[0].hasBody).toBe(false)
       expect(typeof processedRequests[0].timestamp).toBe('number')
+      
+      // ユーザーハンドラーのレスポンスが返されている
+      expect(data).toEqual({ message: 'データ取得成功' })
     } finally {
       server.close()
     }
