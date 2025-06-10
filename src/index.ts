@@ -7,51 +7,47 @@ export interface CapturedRequest {
   body?: string
 }
 
-export type RequestCaptureFn = (request: CapturedRequest) => void
-export type BatchRequestCaptureFn = (requests: CapturedRequest[]) => void
+export type CapturedRequestsHandler = (requests: CapturedRequest[]) => void
 
 /**
- * バッチキャプチャ機能を提供するクラス
+ * リクエストをバッチでキャプチャし、指定されたタイミングで処理するクラス。
  */
-export class BatchCapture {
+export class RequestCapturer {
   private currentBatch: CapturedRequest[] = []
-  private batchCaptureFn: BatchRequestCaptureFn
+  private handler: CapturedRequestsHandler
 
-  constructor(captureFn: BatchRequestCaptureFn) {
-    this.batchCaptureFn = captureFn
+  constructor(handler: CapturedRequestsHandler) {
+    this.handler = handler
   }
 
   /**
-   * リクエストをバッチに追加
+   * リクエストを内部バッチに追加します。
+   * @param request キャプチャされたリクエストオブジェクト
    */
   addRequest(request: CapturedRequest): void {
     this.currentBatch.push(request)
   }
 
   /**
-   * 蓄積されたリクエストを処理してバッチをリセット
-   * リクエストはURLでソートされてからキャプチャ関数に渡される
+   * 蓄積されたリクエストを指定されたハンドラで処理し、バッチをリセットします。
+   * リクエストはURLとメソッドでソートされてからハンドラに渡されます。
    */
   checkpoint(): void {
     if (this.currentBatch.length > 0) {
-      // フレーキーなテストを避けるためにリクエストをソート
       const sortedRequests = [...this.currentBatch].sort((a, b) => {
-        // URLでソート、同じURLの場合はメソッドでソート
         if (a.url === b.url) {
           return a.method.localeCompare(b.method)
         }
         return a.url.localeCompare(b.url)
       })
       
-      this.batchCaptureFn(sortedRequests)
+      this.handler(sortedRequests)
     }
-    
-    // バッチをリセット
     this.currentBatch = []
   }
 
   /**
-   * バッチの状態をリセット
+   * 現在のバッチをリセットします。処理されなかったリクエストは破棄されます。
    */
   reset(): void {
     this.currentBatch = []
@@ -59,40 +55,11 @@ export class BatchCapture {
 }
 
 /**
- * 全てのHTTPリクエストをキャプチャしてfallthroughするMSWハンドラーを作成
- * @param captureFn リクエストをキャプチャする関数
- * @returns MSWリクエストハンドラー
+ * HTTPリクエストをキャプチャするためのMSWリクエストハンドラを作成します。
+ * @param capturer RequestCapturerのインスタンス
+ * @returns MSWリクエストハンドラ
  */
-export function createCaptureHandler(captureFn: RequestCaptureFn): RequestHandler {
-  return http.all('*', async ({ request }) => {
-    const capturedRequest: CapturedRequest = {
-      method: request.method,
-      url: request.url,
-    }
-
-    if (request.body && ['POST', 'PUT', 'PATCH'].includes(request.method)) {
-      try {
-        const body = await request.clone().text()
-        capturedRequest.body = body
-      } catch {
-        // ボディ読み取りエラーは無視
-      }
-    }
-
-    // キャプチャ関数を呼び出し
-    captureFn(capturedRequest)
-    
-    // 別のハンドラーに処理を委譲
-    return undefined
-  })
-}
-
-/**
- * バッチキャプチャ用のMSWハンドラーを作成
- * @param batchCapture BatchCaptureインスタンス
- * @returns MSWリクエストハンドラー
- */
-export function createBatchCaptureHandler(batchCapture: BatchCapture): RequestHandler {
+export function createRequestsCaptureHandler(capturer: RequestCapturer): RequestHandler {
   return http.all('*', async ({ request }) => {
     const capturedRequest: CapturedRequest = {
       method: request.method,
@@ -109,7 +76,7 @@ export function createBatchCaptureHandler(batchCapture: BatchCapture): RequestHa
     }
 
     // バッチにリクエストを追加
-    batchCapture.addRequest(capturedRequest)
+    capturer.addRequest(capturedRequest)
     
     // 別のハンドラーに処理を委譲
     return undefined
