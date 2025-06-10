@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { setupServer } from 'msw/node'
-import { createHandlers, type RequestCaptureFn } from './create-handlers'
+import { createCaptureHandler, type CapturedRequest, type RequestCaptureFn } from './index'
 
 // 実際のネットワークリクエストをテストする関数
 async function fetchRealAPI() {
@@ -45,64 +45,44 @@ async function createUser(userData: { name: string; email: string }) {
   }
 }
 
-describe('Request Capture Tests', () => {
+describe('Capture Requests MSW Library Tests', () => {
   it('GETリクエストがキャプチャされる', async () => {
-    const capturedRequests: any[] = []
+    const capturedRequests: CapturedRequest[] = []
     
     // キャプチャ関数を作成
     const captureFn: RequestCaptureFn = (request) => {
-      const url = new URL(request.url)
-      capturedRequests.push({
-        method: request.method,
-        url: request.url,
-        pathname: url.pathname,
-        search: url.search,
-        headers: Object.fromEntries(request.headers.entries()),
-        timestamp: '[TIMESTAMP]' // 固定値でスナップショット用
-      })
+      capturedRequests.push(request)
     }
     
-    // テスト用MSWサーバーを作成・起動
-    const server = setupServer(...createHandlers(captureFn))
+    // ライブラリを使ってハンドラーを作成
+    const handler = createCaptureHandler(captureFn)
+    const server = setupServer(handler)
     server.listen()
     
     try {
       await fetchRealAPI()
-      expect(capturedRequests).toMatchSnapshot()
+      
+      expect(capturedRequests).toHaveLength(1)
+      expect(capturedRequests[0]).toEqual({
+        method: 'GET',
+        url: 'https://jsonplaceholder.typicode.com/posts/1'
+      })
     } finally {
       server.close()
     }
   })
 
   it('POSTリクエストとボディがキャプチャされる', async () => {
-    const capturedRequests: any[] = []
+    const capturedRequests: CapturedRequest[] = []
     
     // キャプチャ関数を作成
     const captureFn: RequestCaptureFn = (request) => {
-      const url = new URL(request.url)
-      const capturedRequest: any = {
-        method: request.method,
-        url: request.url,
-        pathname: url.pathname,
-        search: url.search,
-        headers: Object.fromEntries(request.headers.entries()),
-        timestamp: '[TIMESTAMP]' // 固定値でスナップショット用
-      }
-
-      // リクエストボディがある場合は追加
-      if (request.body && ['POST', 'PUT', 'PATCH'].includes(request.method)) {
-        request.clone().text().then(body => {
-          if (body) {
-            capturedRequest.body = body
-          }
-        })
-      }
-
-      capturedRequests.push(capturedRequest)
+      capturedRequests.push(request)
     }
     
-    // テスト用MSWサーバーを作成・起動
-    const server = setupServer(...createHandlers(captureFn))
+    // ライブラリを使ってハンドラーを作成
+    const handler = createCaptureHandler(captureFn)
+    const server = setupServer(handler)
     server.listen()
     
     try {
@@ -113,69 +93,68 @@ describe('Request Capture Tests', () => {
       
       await createUser(userData)
       
-      // ボディの非同期処理を待つ
-      await new Promise(resolve => setTimeout(resolve, 100))
-      
-      expect(capturedRequests).toMatchSnapshot()
+      expect(capturedRequests).toHaveLength(1)
+      expect(capturedRequests[0].method).toBe('POST')
+      expect(capturedRequests[0].url).toBe('https://httpbin.org/post')
+      expect(capturedRequests[0].body).toBe(JSON.stringify(userData))
     } finally {
       server.close()
     }
   })
 
   it('複数のリクエストがすべてキャプチャされる', async () => {
-    const capturedRequests: any[] = []
+    const capturedRequests: CapturedRequest[] = []
     
     // キャプチャ関数を作成
     const captureFn: RequestCaptureFn = (request) => {
-      const url = new URL(request.url)
-      capturedRequests.push({
-        method: request.method,
-        url: request.url,
-        pathname: url.pathname,
-        search: url.search,
-        headers: Object.fromEntries(request.headers.entries()),
-        timestamp: '[TIMESTAMP]' // 固定値でスナップショット用
-      })
+      capturedRequests.push(request)
     }
     
-    // テスト用MSWサーバーを作成・起動
-    const server = setupServer(...createHandlers(captureFn))
+    // ライブラリを使ってハンドラーを作成
+    const handler = createCaptureHandler(captureFn)
+    const server = setupServer(handler)
     server.listen()
     
     try {
-      // 複数のリクエストを送信
       await fetchRealAPI()
-      await fetchRealAPI()
+      await createUser({ name: 'Test User', email: 'test@example.com' })
       
       expect(capturedRequests).toHaveLength(2)
-      expect(capturedRequests).toMatchSnapshot()
+      expect(capturedRequests[0].method).toBe('GET')
+      expect(capturedRequests[1].method).toBe('POST')
     } finally {
       server.close()
     }
-  }, 10000)
+  })
 
-  it('カスタムキャプチャ関数を注入できる', async () => {
-    const customCapturedRequests: any[] = []
+  it('カスタム処理でリクエストを加工できる', async () => {
+    const processedRequests: any[] = []
     
     // カスタムキャプチャ関数を作成
-    const customCaptureFn: RequestCaptureFn = (request) => {
-      customCapturedRequests.push({
+    const captureFn: RequestCaptureFn = (request) => {
+      // カスタム処理: URLのパスを抽出
+      const url = new URL(request.url)
+      processedRequests.push({
         method: request.method,
-        url: request.url,
-        custom: 'カスタムキャプチャ',
-        userAgent: request.headers.get('user-agent') || 'unknown'
+        pathname: url.pathname,
+        hasBody: !!request.body,
+        timestamp: Date.now()
       })
     }
     
-    // テスト用MSWサーバーを作成・起動
-    const server = setupServer(...createHandlers(customCaptureFn))
+    // ライブラリを使ってハンドラーを作成
+    const handler = createCaptureHandler(captureFn)
+    const server = setupServer(handler)
     server.listen()
     
     try {
       await fetchRealAPI()
       
-      expect(customCapturedRequests).toHaveLength(1)
-      expect(customCapturedRequests[0]).toMatchSnapshot()
+      expect(processedRequests).toHaveLength(1)
+      expect(processedRequests[0].method).toBe('GET')
+      expect(processedRequests[0].pathname).toBe('/posts/1')
+      expect(processedRequests[0].hasBody).toBe(false)
+      expect(typeof processedRequests[0].timestamp).toBe('number')
     } finally {
       server.close()
     }

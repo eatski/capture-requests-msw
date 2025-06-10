@@ -1,27 +1,30 @@
 {
   "name": "capture-requests-msw",
   "version": "1.0.0",
-  "description": "MSW with Vitest testing setup",
-  "main": "index.js",
+  "description": "MSW library to capture all HTTP requests with custom handlers",
+  "main": "src/index.ts",
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui"
   },
   "keywords": [
-    "testing",
     "msw",
-    "vitest"
+    "testing",
+    "http",
+    "capture",
+    "requests",
+    "mock"
   ],
   "author": "",
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "msw": "^2.10.2",
-    "vitest": "^3.2.3"
+    "msw": "^2.10.2"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.3"
   }
 }
