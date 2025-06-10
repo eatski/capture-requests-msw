@@ -4,9 +4,9 @@
   "description": "MSW with Vitest testing setup",
   "main": "index.js",
   "scripts": {
-    "test": "vitest",
-    "test:ui": "vitest --ui",
-    "test:run": "vitest run"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui"
   },
   "keywords": [
     "testing",
