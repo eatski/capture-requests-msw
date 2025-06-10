@@ -18,16 +18,13 @@ export function createCaptureHandler(captureFn: RequestCaptureFn): RequestHandle
   return http.all('*', async ({ request }) => {
     const capturedRequest: CapturedRequest = {
       method: request.method,
-      url: request.url
+      url: request.url,
     }
 
-    // リクエストボディがある場合は追加
     if (request.body && ['POST', 'PUT', 'PATCH'].includes(request.method)) {
       try {
         const body = await request.clone().text()
-        if (body) {
-          capturedRequest.body = body
-        }
+        capturedRequest.body = body
       } catch {
         // ボディ読み取りエラーは無視
       }
