@@ -1,14 +1,6 @@
-import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
-import { server } from './mocks/server'
-
-// テスト開始前にMSWサーバーを起動
-beforeAll(() => server.listen())
-
-// 各テスト後にハンドラーをリセット
-afterEach(() => server.resetHandlers())
-
-// すべてのテスト終了後にサーバーを停止
-afterAll(() => server.close())
+import { describe, it, expect } from 'vitest'
+import { setupServer } from 'msw/node'
+import { createHandlers, type RequestCaptureFn } from './create-handlers'
 
 // 実際のネットワークリクエストをテストする関数
 async function fetchRealAPI() {
@@ -19,7 +11,6 @@ async function fetchRealAPI() {
     }
     return response.json()
   } catch (error) {
-    console.log('Network request failed (expected in test environment):', error)
     // テスト環境では実際のネットワークリクエストが失敗することが多いので、
     // モックデータを返す
     return {
@@ -31,29 +22,162 @@ async function fetchRealAPI() {
   }
 }
 
-describe('Network Request Logging Tests', () => {
-  it('実際のAPIリクエストがログ出力される', async () => {
-    // このテストはMSWの全リクエストログハンドラーによって
-    // リクエスト詳細がコンソールに出力されることを確認する
-    console.log('📝 このテストでは実際のネットワークリクエストのログが表示されます')
+async function createUser(userData: { name: string; email: string }) {
+  try {
+    const response = await fetch('https://httpbin.org/post', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(userData),
+    })
+    if (!response.ok) {
+      throw new Error('Failed to create user')
+    }
+    return response.json()
+  } catch (error) {
+    // テスト環境ではモックデータを返す
+    return {
+      id: '123',
+      ...userData,
+      createdAt: new Date().toISOString()
+    }
+  }
+}
+
+describe('Request Capture Tests', () => {
+  it('GETリクエストがキャプチャされる', async () => {
+    const capturedRequests: any[] = []
     
-    const result = await fetchRealAPI()
+    // キャプチャ関数を作成
+    const captureFn: RequestCaptureFn = (request) => {
+      const url = new URL(request.url)
+      capturedRequests.push({
+        method: request.method,
+        url: request.url,
+        pathname: url.pathname,
+        search: url.search,
+        headers: Object.fromEntries(request.headers.entries()),
+        timestamp: '[TIMESTAMP]' // 固定値でスナップショット用
+      })
+    }
     
-    expect(result).toBeDefined()
-    expect(result).toHaveProperty('id')
-    expect(result).toHaveProperty('title')
+    // テスト用MSWサーバーを作成・起動
+    const server = setupServer(...createHandlers(captureFn))
+    server.listen()
+    
+    try {
+      await fetchRealAPI()
+      expect(capturedRequests).toMatchSnapshot()
+    } finally {
+      server.close()
+    }
   })
 
-  it('複数のリクエストがすべてログ出力される', async () => {
-    console.log('📝 複数のリクエストをテストします')
+  it('POSTリクエストとボディがキャプチャされる', async () => {
+    const capturedRequests: any[] = []
     
-    // より簡単なテストに変更
-    const result1 = await fetchRealAPI()
-    const result2 = await fetchRealAPI()
+    // キャプチャ関数を作成
+    const captureFn: RequestCaptureFn = (request) => {
+      const url = new URL(request.url)
+      const capturedRequest: any = {
+        method: request.method,
+        url: request.url,
+        pathname: url.pathname,
+        search: url.search,
+        headers: Object.fromEntries(request.headers.entries()),
+        timestamp: '[TIMESTAMP]' // 固定値でスナップショット用
+      }
+
+      // リクエストボディがある場合は追加
+      if (request.body && ['POST', 'PUT', 'PATCH'].includes(request.method)) {
+        request.clone().text().then(body => {
+          if (body) {
+            capturedRequest.body = body
+          }
+        })
+      }
+
+      capturedRequests.push(capturedRequest)
+    }
     
-    expect(result1).toBeDefined()
-    expect(result2).toBeDefined()
-    expect(result1).toHaveProperty('id')
-    expect(result2).toHaveProperty('id')
-  }, 10000) // 10秒のタイムアウトを設定
+    // テスト用MSWサーバーを作成・起動
+    const server = setupServer(...createHandlers(captureFn))
+    server.listen()
+    
+    try {
+      const userData = {
+        name: '田中太郎',
+        email: 'tanaka@example.com'
+      }
+      
+      await createUser(userData)
+      
+      // ボディの非同期処理を待つ
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
+      expect(capturedRequests).toMatchSnapshot()
+    } finally {
+      server.close()
+    }
+  })
+
+  it('複数のリクエストがすべてキャプチャされる', async () => {
+    const capturedRequests: any[] = []
+    
+    // キャプチャ関数を作成
+    const captureFn: RequestCaptureFn = (request) => {
+      const url = new URL(request.url)
+      capturedRequests.push({
+        method: request.method,
+        url: request.url,
+        pathname: url.pathname,
+        search: url.search,
+        headers: Object.fromEntries(request.headers.entries()),
+        timestamp: '[TIMESTAMP]' // 固定値でスナップショット用
+      })
+    }
+    
+    // テスト用MSWサーバーを作成・起動
+    const server = setupServer(...createHandlers(captureFn))
+    server.listen()
+    
+    try {
+      // 複数のリクエストを送信
+      await fetchRealAPI()
+      await fetchRealAPI()
+      
+      expect(capturedRequests).toHaveLength(2)
+      expect(capturedRequests).toMatchSnapshot()
+    } finally {
+      server.close()
+    }
+  }, 10000)
+
+  it('カスタムキャプチャ関数を注入できる', async () => {
+    const customCapturedRequests: any[] = []
+    
+    // カスタムキャプチャ関数を作成
+    const customCaptureFn: RequestCaptureFn = (request) => {
+      customCapturedRequests.push({
+        method: request.method,
+        url: request.url,
+        custom: 'カスタムキャプチャ',
+        userAgent: request.headers.get('user-agent') || 'unknown'
+      })
+    }
+    
+    // テスト用MSWサーバーを作成・起動
+    const server = setupServer(...createHandlers(customCaptureFn))
+    server.listen()
+    
+    try {
+      await fetchRealAPI()
+      
+      expect(customCapturedRequests).toHaveLength(1)
+      expect(customCapturedRequests[0]).toMatchSnapshot()
+    } finally {
+      server.close()
+    }
+  })
 })
