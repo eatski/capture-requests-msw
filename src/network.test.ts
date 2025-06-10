@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
-import { createCaptureHandler, type CapturedRequest, type RequestCaptureFn } from './index'
+import { 
+  createCaptureHandler, 
+  createBatchCaptureHandler,
+  BatchCapture,
+  type CapturedRequest, 
+  type RequestCaptureFn,
+  type BatchRequestCaptureFn 
+} from './index'
 
 describe('Capture Requests MSW Library Tests', () => {
   it('リクエストをキャプチャしてfallthroughで他のハンドラーに委譲する', async () => {
@@ -183,5 +190,174 @@ describe('Capture Requests MSW Library Tests', () => {
     } finally {
       server.close()
     }
+  })
+
+  describe('バッチキャプチャ機能', () => {
+    it('複数のリクエストをバッチで処理できる', async () => {
+      const batchedRequests: CapturedRequest[][] = []
+      
+      // バッチキャプチャインスタンスを作成
+      const batchCapture = new BatchCapture((requests) => {
+        batchedRequests.push(requests)
+      })
+      
+      // ユーザー側で定義するハンドラー
+      const userHandler = http.get('https://api.example.com/users/:id', ({ params }) => {
+        return HttpResponse.json({ id: params.id, name: `ユーザー${params.id}` })
+      })
+      
+      const postsHandler = http.get('https://api.example.com/posts', () => {
+        return HttpResponse.json([{ id: 1, title: '投稿1' }])
+      })
+      
+      // バッチキャプチャハンドラーを作成
+      const captureHandler = createBatchCaptureHandler(batchCapture)
+      const server = setupServer(captureHandler, userHandler, postsHandler)
+      server.listen()
+      
+      try {
+        // 複数のリクエストを実行
+        await fetch('https://api.example.com/users/1')
+        await fetch('https://api.example.com/posts')
+        
+        // この時点ではまだバッチ処理されていない
+        expect(batchedRequests).toHaveLength(0)
+        
+        // チェックポイントでバッチ処理実行
+        batchCapture.checkpoint()
+        
+        // バッチ処理が実行されている
+        expect(batchedRequests).toHaveLength(1)
+        expect(batchedRequests[0]).toHaveLength(2)
+        
+        // URLでソートされている
+        expect(batchedRequests[0][0].url).toBe('https://api.example.com/posts')
+        expect(batchedRequests[0][1].url).toBe('https://api.example.com/users/1')
+      } finally {
+        server.close()
+      }
+    })
+
+    it('チェックポイント間でリクエストがグループ化される', async () => {
+      const batchedRequests: CapturedRequest[][] = []
+      
+      // バッチキャプチャインスタンスを作成
+      const batchCapture = new BatchCapture((requests) => {
+        batchedRequests.push(requests)
+      })
+      
+      // ユーザー側で定義するハンドラー
+      const userHandler = http.get('https://api.example.com/users/:id', ({ params }) => {
+        return HttpResponse.json({ id: params.id, name: `ユーザー${params.id}` })
+      })
+      
+      // バッチキャプチャハンドラーを作成
+      const captureHandler = createBatchCaptureHandler(batchCapture)
+      const server = setupServer(captureHandler, userHandler)
+      server.listen()
+      
+      try {
+        // 最初のグループ
+        await fetch('https://api.example.com/users/1')
+        await fetch('https://api.example.com/users/2')
+        batchCapture.checkpoint() // 最初のチェックポイント
+        
+        // 2番目のグループ
+        await fetch('https://api.example.com/users/3')
+        batchCapture.checkpoint() // 2番目のチェックポイント
+        
+        // 2つのバッチが処理されている
+        expect(batchedRequests).toHaveLength(2)
+        
+        // 最初のバッチには2つのリクエスト
+        expect(batchedRequests[0]).toHaveLength(2)
+        expect(batchedRequests[0][0].url).toBe('https://api.example.com/users/1')
+        expect(batchedRequests[0][1].url).toBe('https://api.example.com/users/2')
+        
+        // 2番目のバッチには1つのリクエスト
+        expect(batchedRequests[1]).toHaveLength(1)
+        expect(batchedRequests[1][0].url).toBe('https://api.example.com/users/3')
+      } finally {
+        server.close()
+      }
+    })
+
+    it('リクエストがURLとメソッドでソートされる', async () => {
+      const batchedRequests: CapturedRequest[][] = []
+      
+      // バッチキャプチャインスタンスを作成
+      const batchCapture = new BatchCapture((requests) => {
+        batchedRequests.push(requests)
+      })
+      
+      // ユーザー側で定義するハンドラー
+      const getHandler = http.get('https://api.example.com/data', () => {
+        return HttpResponse.json({ data: 'get' })
+      })
+      
+      const postHandler = http.post('https://api.example.com/data', () => {
+        return HttpResponse.json({ data: 'post' })
+      })
+      
+      const userHandler = http.get('https://api.example.com/users', () => {
+        return HttpResponse.json({ users: [] })
+      })
+      
+      // バッチキャプチャハンドラーを作成
+      const captureHandler = createBatchCaptureHandler(batchCapture)
+      const server = setupServer(captureHandler, getHandler, postHandler, userHandler)
+      server.listen()
+      
+      try {
+        // 順序を混在させてリクエスト実行
+        await fetch('https://api.example.com/users')
+        await fetch('https://api.example.com/data', { method: 'POST', body: 'test' })
+        await fetch('https://api.example.com/data')
+        
+        batchCapture.checkpoint()
+        
+        expect(batchedRequests).toHaveLength(1)
+        expect(batchedRequests[0]).toHaveLength(3)
+        
+        // ソートされた順序を確認
+        // 1. https://api.example.com/data (GET)
+        // 2. https://api.example.com/data (POST) 
+        // 3. https://api.example.com/users (GET)
+        expect(batchedRequests[0][0].url).toBe('https://api.example.com/data')
+        expect(batchedRequests[0][0].method).toBe('GET')
+        
+        expect(batchedRequests[0][1].url).toBe('https://api.example.com/data')
+        expect(batchedRequests[0][1].method).toBe('POST')
+        
+        expect(batchedRequests[0][2].url).toBe('https://api.example.com/users')
+        expect(batchedRequests[0][2].method).toBe('GET')
+      } finally {
+        server.close()
+      }
+    })
+
+    it('空のバッチではキャプチャ関数が呼ばれない', async () => {
+      const batchedRequests: CapturedRequest[][] = []
+      
+      // バッチキャプチャインスタンスを作成
+      const batchCapture = new BatchCapture((requests) => {
+        batchedRequests.push(requests)
+      })
+      
+      // バッチキャプチャハンドラーを作成
+      const captureHandler = createBatchCaptureHandler(batchCapture)
+      const server = setupServer(captureHandler)
+      server.listen()
+      
+      try {
+        // リクエストなしでチェックポイント実行
+        batchCapture.checkpoint()
+        
+        // キャプチャ関数は呼ばれない
+        expect(batchedRequests).toHaveLength(0)
+      } finally {
+        server.close()
+      }
+    })
   })
 })

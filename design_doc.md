@@ -80,6 +80,39 @@ const customCapture = (request: CapturedRequest) => {
 const handler = createCaptureHandler(customCapture)
 ```
 
+### バッチキャプチャの例
+
+```typescript
+import { setupServer } from 'msw/node'
+import { BatchCapture, createBatchCaptureHandler, type CapturedRequest } from 'capture-requests-msw'
+
+// バッチキャプチャインスタンスを作成
+const batchCapture = new BatchCapture((requests: CapturedRequest[]) => {
+  console.log(`バッチで ${requests.length} 件のリクエストを処理:`)
+  requests.forEach(req => {
+    console.log(`  ${req.method} ${req.url}`)
+  })
+})
+
+// バッチキャプチャハンドラーを作成
+const handler = createBatchCaptureHandler(batchCapture)
+
+// MSWサーバーを作成・起動
+const server = setupServer(handler)
+server.listen()
+
+// HTTPリクエストを実行
+await fetch('https://api.example.com/users/1')
+await fetch('https://api.example.com/posts')
+await fetch('https://api.example.com/comments')
+
+// チェックポイントでバッチ処理を実行
+// リクエストはURLでソートされてからキャプチャ関数に渡される
+batchCapture.checkpoint()
+
+server.close()
+```
+
 ### Vitestでのテスト例
 
 ```typescript
@@ -146,6 +179,43 @@ interface CapturedRequest {
 ```typescript
 type RequestCaptureFn = (request: CapturedRequest) => void
 ```
+
+### `createBatchCaptureHandler(batchCapture)`
+
+バッチキャプチャ用のMSWハンドラーを作成します。
+
+**パラメータ:**
+- `batchCapture: BatchCapture` - バッチキャプチャインスタンス
+
+**戻り値:**
+- `RequestHandler` - MSWリクエストハンドラー
+
+### `BatchCapture`
+
+バッチキャプチャ機能を提供するクラスです。
+
+**コンストラクタ:**
+```typescript
+new BatchCapture(captureFn: BatchRequestCaptureFn)
+```
+
+**メソッド:**
+- `checkpoint(): void` - 蓄積されたリクエストを処理してバッチをリセット
+- `reset(): void` - バッチの状態をリセット
+
+### `BatchRequestCaptureFn`
+
+バッチキャプチャ関数の型定義です。
+
+```typescript
+type BatchRequestCaptureFn = (requests: CapturedRequest[]) => void
+```
+
+## バッチキャプチャの特徴
+
+- **チェックポイントベース**: `checkpoint()`メソッドを呼び出すタイミングでリクエストがまとめて処理されます
+- **ソート機能**: リクエストはURLとメソッドでソートされ、フレーキーなテストを防ぎます
+- **インスタンス分離**: 各テストで独立したBatchCaptureインスタンスを使用できます
 
 ## ライセンス
 
