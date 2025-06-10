@@ -1,0 +1,27 @@
+{
+  "name": "capture-requests-msw",
+  "version": "1.0.0",
+  "description": "MSW with Vitest testing setup",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run"
+  },
+  "keywords": [
+    "testing",
+    "msw",
+    "vitest"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "msw": "^2.10.2",
+    "vitest": "^3.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.8.3"
+  }
+}
