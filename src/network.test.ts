@@ -1,4 +1,14 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import { server } from './mocks/server'
+
+// テスト開始前にMSWサーバーを起動
+beforeAll(() => server.listen())
+
+// 各テスト後にハンドラーをリセット
+afterEach(() => server.resetHandlers())
+
+// すべてのテスト終了後にサーバーを停止
+afterAll(() => server.close())
 
 // 実際のネットワークリクエストをテストする関数
 async function fetchRealAPI() {

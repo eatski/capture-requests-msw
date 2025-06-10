@@ -17,7 +17,6 @@
   "include": [
     "src/**/*",
     "test/**/*",
-    "vitest.setup.ts",
     "vitest.config.ts"
   ]
 }
