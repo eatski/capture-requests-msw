@@ -83,13 +83,6 @@ export class RequestCapturer {
     this.currentBatch = []
   }
 
-  /**
-   * 現在のバッチをリセットします。処理されなかったリクエストは破棄されます。
-   */
-  reset(): void {
-    this.clearAutoCheckpointTimer()
-    this.currentBatch = []
-  }
 }
 
 /**

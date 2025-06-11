@@ -283,7 +283,6 @@ new RequestCapturer(handler: CapturedRequestsHandler, autoCheckpointOptions?: Au
 **メソッド:**
 - `addRequest(request: CapturedRequest): void` - リクエストを内部バッファに追加します。
 - `checkpoint(): void` - 蓄積されたリクエストをソートして処理し、バッファをリセットします。
-- `reset(): void` - 内部バッファの状態をリセットします。
 
 ### リクエスト処理の特徴
 

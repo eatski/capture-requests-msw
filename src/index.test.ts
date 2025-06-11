@@ -569,42 +569,6 @@ describe('Capture Requests MSW Library Tests', () => {
       }
     })
 
-    it('resetメソッドでタイマーがクリアされる', async () => {
-      const capturedRequests: CapturedRequest[] = []
-      
-      // 自動チェックポイントを100msで設定
-      const capturer = new RequestCapturer((requests) => {
-        capturedRequests.push(...requests)
-      }, { timeoutMs: 100 })
-      
-      const userHandler = http.get('https://api.example.com/test', () => {
-        return HttpResponse.json({ success: true })
-      })
-      
-      const captureHandler = createRequestsCaptureHandler(capturer)
-      const server = setupServer(captureHandler, userHandler)
-      server.listen()
-      
-      try {
-        // リクエストを実行
-        await fetch('https://api.example.com/test')
-        
-        // 50ms待機
-        await new Promise(resolve => setTimeout(resolve, 50))
-        
-        // resetを実行
-        capturer.reset()
-        
-        // さらに100ms待機
-        await new Promise(resolve => setTimeout(resolve, 100))
-        
-        // 自動チェックポイントは実行されていない（タイマーがクリアされているため）
-        // かつリクエストも破棄されている
-        expect(capturedRequests).toHaveLength(0)
-      } finally {
-        server.close()
-      }
-    })
   })
 
   describe('ランダムタイミングでの通信安定性テスト (Seed固定)', () => {
