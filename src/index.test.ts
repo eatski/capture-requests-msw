@@ -55,7 +55,7 @@ describe('Capture Requests MSW Library Tests', () => {
     })
     
     // キャプチャハンドラーを最初に、ユーザーハンドラーを後に配置
-    const captureHandler = createRequestsCaptureHandler(capturer)
+    const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
     const server = setupServer(captureHandler, userHandler)
     server.listen()
     
@@ -99,7 +99,7 @@ describe('Capture Requests MSW Library Tests', () => {
     })
     
     // キャプチャハンドラーを最初に、ユーザーハンドラーを後に配置
-    const captureHandler = createRequestsCaptureHandler(capturer)
+    const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
     const server = setupServer(captureHandler, userHandler)
     server.listen()
     
@@ -154,9 +154,9 @@ describe('Capture Requests MSW Library Tests', () => {
       ])
     })
     
-    // キャプチャハンドラーを最初に、他のハンドラーを後に配置
-    const captureHandler = createRequestsCaptureHandler(capturer)
-    const server = setupServer(captureHandler, getUserHandler, getPostsHandler)
+      // キャプチャハンドラーを最初に、他のハンドラーを後に配置
+      const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+      const server = setupServer(captureHandler, getUserHandler, getPostsHandler)
     server.listen()
     
     try {
@@ -213,7 +213,7 @@ describe('Capture Requests MSW Library Tests', () => {
     })
     
     // キャプチャハンドラーを最初に、ユーザーハンドラーを後に配置
-    const captureHandler = createRequestsCaptureHandler(capturer)
+    const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
     const server = setupServer(captureHandler, userHandler)
     server.listen()
     
@@ -257,7 +257,7 @@ describe('Capture Requests MSW Library Tests', () => {
       })
       
       // キャプチャハンドラーを作成
-      const captureHandler = createRequestsCaptureHandler(capturer)
+      const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
       const server = setupServer(captureHandler, userHandler, postsHandler)
       server.listen()
       
@@ -298,7 +298,7 @@ describe('Capture Requests MSW Library Tests', () => {
       })
       
       // キャプチャハンドラーを作成
-      const captureHandler = createRequestsCaptureHandler(capturer)
+      const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
       const server = setupServer(captureHandler, userHandler)
       server.listen()
       
@@ -350,7 +350,7 @@ describe('Capture Requests MSW Library Tests', () => {
       })
       
       // キャプチャハンドラーを作成
-      const captureHandler = createRequestsCaptureHandler(capturer)
+      const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
       const server = setupServer(captureHandler, getHandler, postHandler, userHandler)
       server.listen()
       
@@ -391,7 +391,7 @@ describe('Capture Requests MSW Library Tests', () => {
       })
       
       // キャプチャハンドラーを作成
-      const captureHandler = createRequestsCaptureHandler(capturer)
+      const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
       const server = setupServer(captureHandler)
       server.listen()
       
@@ -420,7 +420,7 @@ describe('Capture Requests MSW Library Tests', () => {
         return HttpResponse.json({ success: true })
       })
       
-      const captureHandler = createRequestsCaptureHandler(capturer)
+      const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
       const server = setupServer(captureHandler, userHandler)
       server.listen()
       
@@ -455,7 +455,7 @@ describe('Capture Requests MSW Library Tests', () => {
         return HttpResponse.json({ success: true })
       })
       
-      const captureHandler = createRequestsCaptureHandler(capturer)
+      const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
       const server = setupServer(captureHandler, userHandler)
       server.listen()
       
@@ -497,7 +497,7 @@ describe('Capture Requests MSW Library Tests', () => {
         return HttpResponse.json({ success: true })
       })
       
-      const captureHandler = createRequestsCaptureHandler(capturer)
+      const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
       const server = setupServer(captureHandler, userHandler)
       server.listen()
       
@@ -545,7 +545,7 @@ describe('Capture Requests MSW Library Tests', () => {
         return HttpResponse.json({ success: true })
       })
       
-      const captureHandler = createRequestsCaptureHandler(capturer)
+      const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
       const server = setupServer(captureHandler, userHandler)
       server.listen()
       
@@ -597,7 +597,7 @@ describe('Capture Requests MSW Library Tests', () => {
         return HttpResponse.json({ success: true, receivedData: body })
       })
       
-      const captureHandler = createRequestsCaptureHandler(capturer)
+      const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
       const server = setupServer(captureHandler, getUserHandler, getPostsHandler, postDataHandler)
       server.listen()
       
@@ -679,7 +679,7 @@ describe('Capture Requests MSW Library Tests', () => {
         return HttpResponse.json({ eventId: Math.random(), data: body })
       })
       
-      const captureHandler = createRequestsCaptureHandler(capturer)
+      const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
       const server = setupServer(captureHandler, userHandler, postHandler)
       server.listen()
       
@@ -752,7 +752,7 @@ describe('Capture Requests MSW Library Tests', () => {
         return HttpResponse.json({ type: params.type, data: body })
       })
       
-      const captureHandler = createRequestsCaptureHandler(capturer)
+      const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
       const server = setupServer(captureHandler, userHandler, dataHandler)
       server.listen()
       
@@ -831,7 +831,7 @@ describe('Capture Requests MSW Library Tests', () => {
       const cHandler = http.post('https://api.example.com/a', () => HttpResponse.json({ service: 'a', method: 'post' }))
       const dHandler = http.post('https://api.example.com/b', () => HttpResponse.json({ service: 'b', method: 'post' }))
       
-      const captureHandler = createRequestsCaptureHandler(capturer)
+      const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
       const server = setupServer(captureHandler, aHandler, bHandler, cHandler, dHandler)
       server.listen()
       

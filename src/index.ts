@@ -86,12 +86,12 @@ export class RequestCapturer {
 }
 
 /**
- * HTTPリクエストをキャプチャするためのMSWリクエストハンドラを作成します。
+ * HTTPリクエストをキャプチャするためのハンドラー関数を作成します。
  * @param capturer RequestCapturerのインスタンス
- * @returns MSWリクエストハンドラ
+ * @returns ハンドラー関数
  */
-export function createRequestsCaptureHandler(capturer: RequestCapturer): RequestHandler {
-  return http.all('*', async ({ request }) => {
+export function createRequestsCaptureHandler(capturer: RequestCapturer) {
+  return async ({ request }: { request: Request }) => {
     const capturedRequest: CapturedRequest = {
       method: request.method,
       url: request.url,
@@ -111,5 +111,5 @@ export function createRequestsCaptureHandler(capturer: RequestCapturer): Request
     
     // 別のハンドラーに処理を委譲
     return undefined
-  })
+  }
 }
