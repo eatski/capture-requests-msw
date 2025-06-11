@@ -1,4 +1,4 @@
-import { http, passthrough } from 'msw'
+import { http } from 'msw'
 import type { RequestHandler } from 'msw'
 
 export interface CapturedRequest {
@@ -14,6 +14,10 @@ export interface AutoCheckpointOptions {
    * リクエストがない状態がこのミリ秒数続いた場合に自動でチェックポイントを作成します。
    */
   timeoutMs: number
+  /**
+   * trueの場合、リクエストがtimeoutMs来ないタイミングが来るまでresponse(fallthrough)を待機します。
+   */
+  waitForFallthrough?: boolean
 }
 
 /**
@@ -24,6 +28,7 @@ export class RequestCapturer {
   private handler: CapturedRequestsHandler
   private autoCheckpointOptions?: AutoCheckpointOptions
   private timeoutId?: NodeJS.Timeout
+  private pendingResponses: (() => void)[] = []
 
   constructor(handler: CapturedRequestsHandler, autoCheckpointOptions?: AutoCheckpointOptions) {
     this.handler = handler
@@ -64,6 +69,21 @@ export class RequestCapturer {
   }
 
   /**
+   * waitForFallthroughが有効な場合にレスポンスを待機登録します。
+   * @returns 待機が完了するまでのPromise
+   */
+  waitForResponse(): Promise<void> {
+    if (!this.autoCheckpointOptions?.waitForFallthrough) {
+      return Promise.resolve()
+    }
+
+    return new Promise<void>((resolve) => {
+      this.pendingResponses.push(resolve)
+    })
+  }
+
+
+  /**
    * 蓄積されたリクエストを指定されたハンドラで処理し、バッチをリセットします。
    * リクエストはURLとメソッドでソートされてからハンドラに渡されます。
    */
@@ -81,6 +101,11 @@ export class RequestCapturer {
       this.handler(sortedRequests)
     }
     this.currentBatch = []
+    
+    // 待機中のレスポンスを解放
+    const responses = this.pendingResponses
+    this.pendingResponses = []
+    responses.forEach(resolve => resolve())
   }
 
 }
@@ -109,7 +134,10 @@ export function createRequestsCaptureHandler(capturer: RequestCapturer) {
     // バッチにリクエストを追加
     capturer.addRequest(capturedRequest)
     
-    // 別のハンドラーに処理を委譲
+    // waitForFallthroughが有効な場合、チェックポイントまで待機
+    await capturer.waitForResponse()
+    
+    // 常に別のハンドラーに処理を委譲（fallthrough）
     return undefined
   }
 }

@@ -93,6 +93,43 @@ console.log(capturedRequests)
 server.close()
 ```
 
+### waitForFallthrough機能の例
+
+```typescript
+import { setupServer } from 'msw/node'
+import { RequestCapturer, createRequestsCaptureHandler, type CapturedRequest } from 'capture-requests-msw'
+
+// キャプチャされたリクエストを保存する配列
+const capturedRequests: CapturedRequest[] = []
+
+// 自動チェックポイントとwaitForFallthroughを有効にする
+const capturer = new RequestCapturer((requests) => {
+  capturedRequests.push(...requests)
+}, { 
+  timeoutMs: 1000,
+  waitForFallthrough: true  // チェックポイントまで待機してから実際のリクエストを実行
+})
+
+// ハンドラーを作成
+const handler = createRequestsCaptureHandler(capturer)
+
+// MSWサーバーを作成・起動
+const server = setupServer(handler)
+server.listen()
+
+// HTTPリクエストを実行（実際のネットワークリクエストが発生）
+const response = await fetch('https://api.example.com/users')
+const data = await response.json()
+
+// リクエストはキャプチャされ、1秒後に自動処理される
+await new Promise(resolve => setTimeout(resolve, 1100))
+
+console.log(capturedRequests)  // キャプチャされたリクエスト
+console.log(data)              // 実際のAPIレスポンス
+
+server.close()
+```
+
 ### カスタム処理の例
 
 ```typescript
@@ -264,6 +301,7 @@ type CapturedRequestsHandler = (requests: CapturedRequest[]) => void
 ```typescript
 interface AutoCheckpointOptions {
   timeoutMs: number  // リクエストがない状態がこのミリ秒数続いた場合に自動でチェックポイントを作成
+  waitForFallthrough?: boolean  // trueの場合、リクエストがtimeoutMs来ないタイミングが来るまでresponse(fallthrough)を待機
 }
 ```
 

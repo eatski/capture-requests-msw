@@ -872,4 +872,220 @@ describe('Capture Requests MSW Library Tests', () => {
       }
     })
   })
+
+  describe('waitForFallthrough機能', () => {
+    it('waitForFallthroughが有効な場合、チェックポイントまで待機してからfallthroughする', async () => {
+      const capturedRequests: CapturedRequest[] = []
+      let handlerCallOrder: string[] = []
+      
+      // waitForFallthroughを有効にしたキャプチャラーを作成
+      const capturer = new RequestCapturer((requests) => {
+        handlerCallOrder.push('capture-handler')
+        capturedRequests.push(...requests)
+      }, { 
+        timeoutMs: 100,
+        waitForFallthrough: true 
+      })
+      
+      // ユーザー側で定義するハンドラー
+      const userHandler = http.get('https://api.example.com/test', () => {
+        handlerCallOrder.push('user-handler')
+        return HttpResponse.json({ message: 'ユーザーハンドラーで処理' })
+      })
+      
+      // キャプチャハンドラーを最初に、ユーザーハンドラーを後に配置
+      const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+      const server = setupServer(captureHandler, userHandler)
+      server.listen()
+      
+      try {
+        // リクエストを実行（この時点ではチェックポイントまで待機）
+        const responsePromise = fetch('https://api.example.com/test')
+        
+        // 少し待機（まだチェックポイントは実行されていない）
+        await setTimeout(50)
+        expect(handlerCallOrder).toEqual([])
+        expect(capturedRequests).toHaveLength(0)
+        
+        // 自動チェックポイントが実行されるまで待機
+        await setTimeout(60)
+        
+        // この時点でキャプチャハンドラーが実行されている
+        expect(handlerCallOrder).toEqual(['capture-handler', 'user-handler'])
+        expect(capturedRequests).toHaveLength(1)
+        expect(capturedRequests[0].method).toBe('GET')
+        expect(capturedRequests[0].url).toBe('https://api.example.com/test')
+        
+        // レスポンスを取得（ユーザーハンドラーで処理されている）
+        const response = await responsePromise
+        const data = await response.json()
+        
+        expect(data).toEqual({ message: 'ユーザーハンドラーで処理' })
+      } finally {
+        server.close()
+      }
+    })
+
+    it('waitForFallthroughが無効な場合、即座にfallthroughする', async () => {
+      const capturedRequests: CapturedRequest[] = []
+      let handlerCallOrder: string[] = []
+
+      // waitForFallthroughを無効にしたキャプチャラーを作成
+      const capturer = new RequestCapturer((requests) => {
+        handlerCallOrder.push('capture-handler')
+        capturedRequests.push(...requests)
+      }, {
+        timeoutMs: 100,
+        waitForFallthrough: false
+      })
+
+      // ユーザー側で定義するハンドラー
+      const userHandler = http.get('https://api.example.com/test', () => {
+        handlerCallOrder.push('user-handler')
+        return HttpResponse.json({ message: 'ユーザーハンドラーで処理' })
+      })
+
+      // キャプチャハンドラーを最初に、ユーザーハンドラーを後に配置
+      const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+      const server = setupServer(captureHandler, userHandler)
+      server.listen()
+
+      try {
+        // リクエストを実行（即座にfallthroughする）
+        const response = await fetch('https://api.example.com/test')
+        const data = await response.json()
+
+        // ユーザーハンドラーが即座に実行されている
+        expect(handlerCallOrder).toEqual(['user-handler'])
+        expect(data).toEqual({ message: 'ユーザーハンドラーで処理' })
+
+        // まだキャプチャは実行されていない
+        expect(capturedRequests).toHaveLength(0)
+
+        // 自動チェックポイントが実行されるまで待機
+        await setTimeout(110)
+
+        // キャプチャが実行されている
+        expect(handlerCallOrder).toEqual(['user-handler', 'capture-handler'])
+        expect(capturedRequests).toHaveLength(1)
+      } finally {
+        server.close()
+      }
+    })
+
+    it('waitForFallthroughが有効で手動チェックポイントの場合も正しく動作する', async () => {
+      const capturedRequests: CapturedRequest[] = []
+      let handlerCallOrder: string[] = []
+      
+      // waitForFallthroughを有効にしたキャプチャラーを作成（自動チェックポイントなし）
+      const capturer = new RequestCapturer((requests) => {
+        handlerCallOrder.push('capture-handler')
+        capturedRequests.push(...requests)
+      }, { 
+        timeoutMs: 1000, // 長めに設定して自動実行を避ける
+        waitForFallthrough: true 
+      })
+      
+      // ユーザー側で定義するハンドラー
+      const userHandler = http.get('https://api.example.com/test', () => {
+        handlerCallOrder.push('user-handler')
+        return HttpResponse.json({ message: 'ユーザーハンドラーで処理' })
+      })
+      
+      // キャプチャハンドラーを最初に、ユーザーハンドラーを後に配置
+      const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+      const server = setupServer(captureHandler, userHandler)
+      server.listen()
+      
+      try {
+        // リクエストを実行（この時点ではチェックポイントまで待機）
+        const responsePromise = fetch('https://api.example.com/test')
+        
+        // 少し待機
+        await setTimeout(50)
+        expect(handlerCallOrder).toEqual([])
+        expect(capturedRequests).toHaveLength(0)
+        
+        // 手動でチェックポイントを実行
+        capturer.checkpoint()
+        
+        // この時点でキャプチャハンドラーが実行されている
+        expect(handlerCallOrder).toEqual(['capture-handler'])
+        expect(capturedRequests).toHaveLength(1)
+        
+        // レスポンスを取得（ユーザーハンドラーで処理されている）
+        const response = await responsePromise
+        const data = await response.json()
+        
+        expect(handlerCallOrder).toEqual(['capture-handler', 'user-handler'])
+        expect(data).toEqual({ message: 'ユーザーハンドラーで処理' })
+      } finally {
+        server.close()
+      }
+    })
+
+    it('waitForFallthroughが有効な場合でも複数リクエストを正しく処理できる', async () => {
+      const capturedRequests: CapturedRequest[] = []
+      
+      // waitForFallthroughを有効にしたキャプチャラーを作成
+      const capturer = new RequestCapturer((requests) => {
+        capturedRequests.push(...requests)
+      }, { 
+        timeoutMs: 100,
+        waitForFallthrough: true 
+      })
+      
+      // ユーザー側で定義するハンドラー
+      const userHandler1 = http.get('https://api.example.com/users/:id', ({ params }) => {
+        return HttpResponse.json({ id: params.id, name: `ユーザー${params.id}` })
+      })
+      
+      const userHandler2 = http.post('https://api.example.com/posts', async ({ request }) => {
+        const body = await request.json() as Record<string, any>
+        return HttpResponse.json({ id: 123, ...body })
+      })
+      
+      // キャプチャハンドラーを最初に、ユーザーハンドラーを後に配置
+      const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+      const server = setupServer(captureHandler, userHandler1, userHandler2)
+      server.listen()
+      
+      try {
+        // 複数のリクエストを実行
+        const request1Promise = fetch('https://api.example.com/users/1')
+        const request2Promise = fetch('https://api.example.com/posts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: 'テスト投稿' })
+        })
+        
+        // 自動チェックポイントが実行されるまで待機
+        await setTimeout(110)
+        
+        // キャプチャが実行されている
+        expect(capturedRequests).toHaveLength(2)
+        
+        // URLでソートされている
+        expect(capturedRequests[0].url).toBe('https://api.example.com/posts')
+        expect(capturedRequests[0].method).toBe('POST')
+        expect(capturedRequests[0].body).toBe('{"title":"テスト投稿"}')
+        
+        expect(capturedRequests[1].url).toBe('https://api.example.com/users/1')
+        expect(capturedRequests[1].method).toBe('GET')
+        
+        // レスポンスを取得
+        const response1 = await request1Promise
+        const response2 = await request2Promise
+        
+        const data1 = await response1.json()
+        const data2 = await response2.json()
+        
+        // 適切なハンドラーで処理されている
+        expect(data1).toEqual({ id: '1', name: 'ユーザー1' })
+        expect(data2).toEqual({ id: 123, title: 'テスト投稿' })
+      } finally {
+        server.close()
+      }
+    })
+  })
 })
