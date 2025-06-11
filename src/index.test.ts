@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
+import { setTimeout } from 'timers/promises'
 import { createRequestsCaptureHandler, RequestCapturer, type CapturedRequest } from './index'
 import { SeededRandom } from './test-utils'
 
 // ランダムな遅延を追加するヘルパー関数
 async function randomDelay(rng: SeededRandom, minMs: number = 1, maxMs: number = 50): Promise<void> {
-  const delay = rng.nextInt(minMs, maxMs)
-  await new Promise(resolve => setTimeout(resolve, delay))
+  await rng.randomDelay(minMs, maxMs)
 }
 
 // 複数のHTTPリクエストをランダムなタイミングで実行するヘルパー関数
@@ -432,7 +432,7 @@ describe('Capture Requests MSW Library Tests', () => {
         expect(capturedRequests).toHaveLength(0)
         
         // 110ms待機（自動チェックポイントが実行される）
-        await new Promise(resolve => setTimeout(resolve, 110))
+        await setTimeout(110)
         
         // 自動チェックポイントが実行されている
         expect(capturedRequests).toHaveLength(1)
@@ -464,19 +464,19 @@ describe('Capture Requests MSW Library Tests', () => {
         await fetch('https://api.example.com/test')
         
         // 80ms待機（自動チェックポイントまで20ms残り）
-        await new Promise(resolve => setTimeout(resolve, 80))
+        await setTimeout(80)
         
         // 2番目のリクエスト（タイマーがリセットされる）
         await fetch('https://api.example.com/test')
         
         // さらに80ms待機（最初のリクエストから160ms、2番目のリクエストから80ms）
-        await new Promise(resolve => setTimeout(resolve, 80))
+        await setTimeout(80)
         
         // まだ自動チェックポイントは実行されていない
         expect(capturedRequests).toHaveLength(0)
         
         // さらに30ms待機（2番目のリクエストから110ms）
-        await new Promise(resolve => setTimeout(resolve, 30))
+        await setTimeout(30)
         
         // 自動チェックポイントが実行されている
         expect(capturedRequests).toHaveLength(2)
@@ -506,7 +506,7 @@ describe('Capture Requests MSW Library Tests', () => {
         await fetch('https://api.example.com/test')
         
         // 50ms待機
-        await new Promise(resolve => setTimeout(resolve, 50))
+        await setTimeout(50)
         
         // 手動でチェックポイントを実行
         capturer.checkpoint()
@@ -518,13 +518,13 @@ describe('Capture Requests MSW Library Tests', () => {
         await fetch('https://api.example.com/test')
         
         // 50ms待機（自動チェックポイントの時間内）
-        await new Promise(resolve => setTimeout(resolve, 50))
+        await setTimeout(50)
         
         // リクエストの時点から所定の時間まではcapturedRequestsが増えていない
         expect(capturedRequests).toHaveLength(1)
         
         // さらに60ms待機（合計110ms、自動チェックポイントの時間を超過）
-        await new Promise(resolve => setTimeout(resolve, 60))
+        await setTimeout(60)
         
         // リクエストの時点から所定の時間後はcapturedRequestsが増えている
         expect(capturedRequests).toHaveLength(2)
@@ -554,7 +554,7 @@ describe('Capture Requests MSW Library Tests', () => {
         await fetch('https://api.example.com/test')
         
         // 200ms待機
-        await new Promise(resolve => setTimeout(resolve, 200))
+        await setTimeout(200)
         
         // 自動チェックポイントは実行されていない
         expect(capturedRequests).toHaveLength(0)
@@ -696,7 +696,7 @@ describe('Capture Requests MSW Library Tests', () => {
         await executeRequestsRandomly(rng, firstBatch)
         
         // 自動チェックポイントが実行されるまで待機
-        await new Promise(resolve => setTimeout(resolve, 70))
+        await setTimeout(70)
         
         // 第2グループのリクエスト
         const secondBatch = [
@@ -707,7 +707,7 @@ describe('Capture Requests MSW Library Tests', () => {
         await executeRequestsRandomly(rng, secondBatch)
         
         // 第2グループの自動チェックポイントが実行されるまで待機
-        await new Promise(resolve => setTimeout(resolve, 70))
+        await setTimeout(70)
         
         // 結果の検証
         expect(capturedGroups).toHaveLength(2)
