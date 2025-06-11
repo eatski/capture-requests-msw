@@ -2,36 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
 import { createRequestsCaptureHandler, RequestCapturer, type CapturedRequest } from './index'
-
-// シード可能な疑似乱数生成器
-class SeededRandom {
-  private seed: number
-
-  constructor(seed: number) {
-    this.seed = seed
-  }
-
-  // Linear Congruential Generator (LCG)
-  next(): number {
-    this.seed = (this.seed * 1664525 + 1013904223) % Math.pow(2, 32)
-    return this.seed / Math.pow(2, 32)
-  }
-
-  // 指定範囲の整数を生成
-  nextInt(min: number, max: number): number {
-    return Math.floor(this.next() * (max - min + 1)) + min
-  }
-
-  // 配列をシャッフル
-  shuffle<T>(array: T[]): T[] {
-    const shuffled = [...array]
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = this.nextInt(0, i)
-      ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-    }
-    return shuffled
-  }
-}
+import { SeededRandom } from './test-utils'
 
 // ランダムな遅延を追加するヘルパー関数
 async function randomDelay(rng: SeededRandom, minMs: number = 1, maxMs: number = 50): Promise<void> {
