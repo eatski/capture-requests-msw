@@ -1087,5 +1087,86 @@ describe('Capture Requests MSW Library Tests', () => {
         server.close()
       }
     })
+
+    it('waitForFallthroughが有効な場合、順次fetchしてawaitする際の挙動を確認', async () => {
+      const capturedGroups: CapturedRequest[][] = []
+      let handlerCallOrder: string[] = []
+      
+      // waitForFallthroughを有効にしたキャプチャラーを作成
+      const capturer = new RequestCapturer((requests) => {
+        handlerCallOrder.push('capture-handler')
+        capturedGroups.push(requests)
+      }, { 
+        timeoutMs: 100,
+        waitForFallthrough: true 
+      })
+      
+      // ユーザー側で定義するハンドラー
+      const userHandler1 = http.get('https://api.example.com/first', () => {
+        handlerCallOrder.push('first-handler')
+        return HttpResponse.json({ message: '最初のリクエスト' })
+      })
+      
+      const userHandler2 = http.get('https://api.example.com/second', () => {
+        handlerCallOrder.push('second-handler')
+        return HttpResponse.json({ message: '2番目のリクエスト' })
+      })
+      
+      const userHandler3 = http.get('https://api.example.com/third', () => {
+        handlerCallOrder.push('third-handler')
+        return HttpResponse.json({ message: '3番目のリクエスト' })
+      })
+      
+      // キャプチャハンドラーを最初に、ユーザーハンドラーを後に配置
+      const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+      const server = setupServer(captureHandler, userHandler1, userHandler2, userHandler3)
+      server.listen()
+      
+      try {
+        // 順次fetchしてawaitする（waitForFallthroughにより自動的にtimeoutMs待機される）
+        const response1 = await fetch('https://api.example.com/first')
+        const data1 = await response1.json()
+        
+        const response2 = await fetch('https://api.example.com/second')
+        const data2 = await response2.json()
+        
+        const response3 = await fetch('https://api.example.com/third')
+        const data3 = await response3.json()
+        
+        // waitForFallthroughが有効な場合、各リクエストは個別にキャプチャされる
+        expect(capturedGroups).toHaveLength(3)
+        expect(capturedGroups[0]).toHaveLength(1)
+        expect(capturedGroups[1]).toHaveLength(1)
+        expect(capturedGroups[2]).toHaveLength(1)
+        
+        // 各リクエストが正しく処理されていることを確認
+        expect(data1).toEqual({ message: '最初のリクエスト' })
+        expect(data2).toEqual({ message: '2番目のリクエスト' })
+        expect(data3).toEqual({ message: '3番目のリクエスト' })
+        
+        // ハンドラーの実行順序を確認（waitForFallthroughにより、各リクエストが個別に処理される）
+        expect(handlerCallOrder).toEqual([
+          'capture-handler',
+          'first-handler',
+          'capture-handler',
+          'second-handler',
+          'capture-handler',
+          'third-handler'
+        ])
+        
+        // キャプチャされたリクエストの内容を確認
+        expect(capturedGroups[0][0].url).toBe('https://api.example.com/first')
+        expect(capturedGroups[1][0].url).toBe('https://api.example.com/second')
+        expect(capturedGroups[2][0].url).toBe('https://api.example.com/third')
+        
+        // すべてGETリクエスト
+        expect(capturedGroups[0][0].method).toBe('GET')
+        expect(capturedGroups[1][0].method).toBe('GET')
+        expect(capturedGroups[2][0].method).toBe('GET')
+      } finally {
+        server.close()
+      }
+    })
+
   })
 })
