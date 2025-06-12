@@ -382,28 +382,12 @@ describe('Capture Requests MSW Library Tests', () => {
       }
     })
 
-    it('リクエストがない場合はハンドラが呼ばれない', async () => {
-      const processedGroups: CapturedRequest[][] = []
+    it('リクエストがない場合ハンドラが呼ばれない', async () => {
+      const groups: CapturedRequest[][] = []
+      const capturer = new RequestCapturer((requests) => groups.push([...requests]))
       
-      // キャプチャラーを作成
-      const capturer = new RequestCapturer((requests) => {
-        processedGroups.push([...requests])
-      })
-      
-      // キャプチャハンドラーを作成
-      const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
-      const server = setupServer(captureHandler)
-      server.listen()
-      
-      try {
-        // リクエストなしで処理実行
-        capturer.checkpoint()
-        
-        // ハンドラは呼ばれない
-        expect(processedGroups).toHaveLength(0)
-      } finally {
-        server.close()
-      }
+      capturer.checkpoint()
+      expect(groups).toHaveLength(0)
     })
   })
 
