@@ -15,9 +15,9 @@ export interface AutoCheckpointOptions {
    */
   timeoutMs: number
   /**
-   * trueの場合、リクエストがtimeoutMs来ないタイミングが来るまでresponse(fallthrough)を待機します。
+   * trueの場合、チェックポイントが実行されるまでレスポンス(fallthrough)を待機します。
    */
-  waitForFallthrough?: boolean
+  waitForCheckpoint?: boolean
 }
 
 /**
@@ -69,11 +69,11 @@ export class RequestCapturer {
   }
 
   /**
-   * waitForFallthroughが有効な場合にレスポンスを待機登録します。
+   * waitForCheckpointが有効な場合にレスポンスを待機登録します。
    * @returns 待機が完了するまでのPromise
    */
   waitForResponse(): Promise<void> {
-    if (!this.autoCheckpointOptions?.waitForFallthrough) {
+    if (!this.autoCheckpointOptions?.waitForCheckpoint) {
       return Promise.resolve()
     }
 
@@ -134,7 +134,7 @@ export function createRequestsCaptureHandler(capturer: RequestCapturer) {
     // バッチにリクエストを追加
     capturer.addRequest(capturedRequest)
     
-    // waitForFallthroughが有効な場合、チェックポイントまで待機
+    // waitForCheckpointが有効な場合、チェックポイントまで待機
     await capturer.waitForResponse()
     
     // 常に別のハンドラーに処理を委譲（fallthrough）

@@ -93,7 +93,7 @@ console.log(capturedRequests)
 server.close()
 ```
 
-### waitForFallthrough機能の例
+### waitForCheckpoint機能の例
 
 ```typescript
 import { setupServer } from 'msw/node'
@@ -102,12 +102,12 @@ import { RequestCapturer, createRequestsCaptureHandler, type CapturedRequest } f
 // キャプチャされたリクエストを保存する配列
 const capturedRequests: CapturedRequest[] = []
 
-// 自動チェックポイントとwaitForFallthroughを有効にする
+// 自動チェックポイントとwaitForCheckpointを有効にする
 const capturer = new RequestCapturer((requests) => {
   capturedRequests.push(...requests)
 }, { 
   timeoutMs: 1000,
-  waitForFallthrough: true  // チェックポイントまで待機してから実際のリクエストを実行
+  waitForCheckpoint: true  // チェックポイントまで待機してから実際のリクエストを実行
 })
 
 // ハンドラーを作成
@@ -301,7 +301,7 @@ type CapturedRequestsHandler = (requests: CapturedRequest[]) => void
 ```typescript
 interface AutoCheckpointOptions {
   timeoutMs: number  // リクエストがない状態がこのミリ秒数続いた場合に自動でチェックポイントを作成
-  waitForFallthrough?: boolean  // trueの場合、リクエストがtimeoutMs来ないタイミングが来るまでresponse(fallthrough)を待機
+  waitForCheckpoint?: boolean  // trueの場合、チェックポイントが実行されるまでresponse(fallthrough)を待機
 }
 ```
 

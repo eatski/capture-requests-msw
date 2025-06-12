@@ -873,18 +873,18 @@ describe('Capture Requests MSW Library Tests', () => {
     })
   })
 
-  describe('waitForFallthrough機能', () => {
-    it('waitForFallthroughが有効な場合、チェックポイントまで待機してからfallthroughする', async () => {
+  describe('waitForCheckpoint機能', () => {
+    it('waitForCheckpointが有効な場合、チェックポイントまで待機してからfallthroughする', async () => {
       const capturedRequests: CapturedRequest[] = []
       let handlerCallOrder: string[] = []
       
-      // waitForFallthroughを有効にしたキャプチャラーを作成
+      // waitForCheckpointを有効にしたキャプチャラーを作成
       const capturer = new RequestCapturer((requests) => {
         handlerCallOrder.push('capture-handler')
         capturedRequests.push(...requests)
       }, { 
         timeoutMs: 100,
-        waitForFallthrough: true 
+        waitForCheckpoint: true 
       })
       
       // ユーザー側で定義するハンドラー
@@ -926,17 +926,17 @@ describe('Capture Requests MSW Library Tests', () => {
       }
     })
 
-    it('waitForFallthroughが無効な場合、即座にfallthroughする', async () => {
+    it('waitForCheckpointが無効な場合、即座にfallthroughする', async () => {
       const capturedRequests: CapturedRequest[] = []
       let handlerCallOrder: string[] = []
 
-      // waitForFallthroughを無効にしたキャプチャラーを作成
+      // waitForCheckpointを無効にしたキャプチャラーを作成
       const capturer = new RequestCapturer((requests) => {
         handlerCallOrder.push('capture-handler')
         capturedRequests.push(...requests)
       }, {
         timeoutMs: 100,
-        waitForFallthrough: false
+        waitForCheckpoint: false
       })
 
       // ユーザー側で定義するハンドラー
@@ -973,17 +973,17 @@ describe('Capture Requests MSW Library Tests', () => {
       }
     })
 
-    it('waitForFallthroughが有効で手動チェックポイントの場合も正しく動作する', async () => {
+    it('waitForCheckpointが有効で手動チェックポイントの場合も正しく動作する', async () => {
       const capturedRequests: CapturedRequest[] = []
       let handlerCallOrder: string[] = []
       
-      // waitForFallthroughを有効にしたキャプチャラーを作成（自動チェックポイントなし）
+      // waitForCheckpointを有効にしたキャプチャラーを作成（自動チェックポイントなし）
       const capturer = new RequestCapturer((requests) => {
         handlerCallOrder.push('capture-handler')
         capturedRequests.push(...requests)
       }, { 
         timeoutMs: 1000, // 長めに設定して自動実行を避ける
-        waitForFallthrough: true 
+        waitForCheckpoint: true 
       })
       
       // ユーザー側で定義するハンドラー
@@ -1024,15 +1024,15 @@ describe('Capture Requests MSW Library Tests', () => {
       }
     })
 
-    it('waitForFallthroughが有効な場合でも複数リクエストを正しく処理できる', async () => {
+    it('waitForCheckpointが有効な場合でも複数リクエストを正しく処理できる', async () => {
       const capturedRequests: CapturedRequest[] = []
       
-      // waitForFallthroughを有効にしたキャプチャラーを作成
+      // waitForCheckpointを有効にしたキャプチャラーを作成
       const capturer = new RequestCapturer((requests) => {
         capturedRequests.push(...requests)
       }, { 
         timeoutMs: 100,
-        waitForFallthrough: true 
+        waitForCheckpoint: true 
       })
       
       // ユーザー側で定義するハンドラー
@@ -1088,17 +1088,17 @@ describe('Capture Requests MSW Library Tests', () => {
       }
     })
 
-    it('waitForFallthroughが有効な場合、順次fetchしてawaitする際の挙動を確認', async () => {
+    it('waitForCheckpointが有効な場合、順次fetchしてawaitする際の挙動を確認', async () => {
       const capturedGroups: CapturedRequest[][] = []
       let handlerCallOrder: string[] = []
       
-      // waitForFallthroughを有効にしたキャプチャラーを作成
+      // waitForCheckpointを有効にしたキャプチャラーを作成
       const capturer = new RequestCapturer((requests) => {
         handlerCallOrder.push('capture-handler')
         capturedGroups.push(requests)
       }, { 
         timeoutMs: 100,
-        waitForFallthrough: true 
+        waitForCheckpoint: true 
       })
       
       // ユーザー側で定義するハンドラー
@@ -1123,7 +1123,7 @@ describe('Capture Requests MSW Library Tests', () => {
       server.listen()
       
       try {
-        // 順次fetchしてawaitする（waitForFallthroughにより自動的にtimeoutMs待機される）
+        // 順次fetchしてawaitする（waitForCheckpointにより自動的にtimeoutMs待機される）
         const response1 = await fetch('https://api.example.com/first')
         const data1 = await response1.json()
         
@@ -1133,7 +1133,7 @@ describe('Capture Requests MSW Library Tests', () => {
         const response3 = await fetch('https://api.example.com/third')
         const data3 = await response3.json()
         
-        // waitForFallthroughが有効な場合、各リクエストは個別にキャプチャされる
+        // waitForCheckpointが有効な場合、各リクエストは個別にキャプチャされる
         expect(capturedGroups).toHaveLength(3)
         expect(capturedGroups[0]).toHaveLength(1)
         expect(capturedGroups[1]).toHaveLength(1)
@@ -1144,7 +1144,7 @@ describe('Capture Requests MSW Library Tests', () => {
         expect(data2).toEqual({ message: '2番目のリクエスト' })
         expect(data3).toEqual({ message: '3番目のリクエスト' })
         
-        // ハンドラーの実行順序を確認（waitForFallthroughにより、各リクエストが個別に処理される）
+        // ハンドラーの実行順序を確認（waitForCheckpointにより、各リクエストが個別に処理される）
         expect(handlerCallOrder).toEqual([
           'capture-handler',
           'first-handler',
