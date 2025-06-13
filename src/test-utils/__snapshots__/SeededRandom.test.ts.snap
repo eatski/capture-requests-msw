@@ -1,0 +1,75 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`SeededRandom > comprehensive snapshot test > should generate consistent output across all methods 1`] = `
+{
+  "integers": [
+    23,
+    38,
+    3,
+  ],
+  "randomNumbers": [
+    0.2523451747838408,
+    0.08812504541128874,
+    0.5772811982315034,
+  ],
+  "shuffledArray": [
+    1,
+    9,
+    4,
+    10,
+    3,
+    6,
+    8,
+    7,
+    2,
+    5,
+  ],
+  "shuffledStrings": [
+    "date",
+    "banana",
+    "cherry",
+    "elderberry",
+    "apple",
+  ],
+}
+`;
+
+exports[`SeededRandom > next() > should generate deterministic values 1`] = `
+[
+  0.02040268573909998,
+  0.01654784823767841,
+  0.5431557944975793,
+]
+`;
+
+exports[`SeededRandom > nextInt() > should generate deterministic integers 1`] = `
+[
+  1,
+  1,
+  6,
+]
+`;
+
+exports[`SeededRandom > shuffle() > should shuffle array deterministically 1`] = `
+[
+  7,
+  3,
+  4,
+  2,
+  9,
+  6,
+  8,
+  5,
+  10,
+  1,
+]
+`;
+
+exports[`SeededRandom > shuffle() > should work with different data types 1`] = `
+[
+  "c",
+  "b",
+  "d",
+  "a",
+]
+`;
