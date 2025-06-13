@@ -142,53 +142,6 @@ describe('SeededRandom', () => {
     })
   })
 
-  describe('randomDelay()', () => {
-    it('should return a Promise', () => {
-      const rng = new SeededRandom(12345)
-      const promise = rng.randomDelay()
-      
-      expect(promise).toBeInstanceOf(Promise)
-    })
-
-    it('should resolve within expected time range', async () => {
-      const rng = new SeededRandom(12345)
-      const startTime = Date.now()
-      
-      await rng.randomDelay(10, 20)
-      
-      const endTime = Date.now()
-      const elapsed = endTime - startTime
-      
-      // Allow some tolerance for execution time
-      expect(elapsed).toBeGreaterThanOrEqual(8)
-      expect(elapsed).toBeLessThan(30)
-    })
-
-    it('should use default values when no parameters provided', async () => {
-      const rng = new SeededRandom(12345)
-      const startTime = Date.now()
-      
-      await rng.randomDelay()
-      
-      const endTime = Date.now()
-      const elapsed = endTime - startTime
-      
-      // Default range is 1-50ms
-      expect(elapsed).toBeLessThan(60)
-    })
-
-    it('should handle minimum delay', async () => {
-      const rng = new SeededRandom(12345)
-      const startTime = Date.now()
-      
-      await rng.randomDelay(0, 0)
-      
-      const endTime = Date.now()
-      const elapsed = endTime - startTime
-      
-      expect(elapsed).toBeLessThan(10) // Should be very fast
-    })
-  })
 
   describe('comprehensive snapshot test', () => {
     it('should generate consistent output across all methods', () => {

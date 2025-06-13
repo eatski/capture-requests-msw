@@ -1,8 +1,10 @@
 import { SeededRandom } from '../src/test-utils'
+import { setTimeout } from 'timers/promises'
 
 // ランダムな遅延を追加するヘルパー関数
 export async function randomDelay(rng: SeededRandom, minMs: number = 1, maxMs: number = 50): Promise<void> {
-  await rng.randomDelay(minMs, maxMs)
+  const delay = rng.nextInt(minMs, maxMs)
+  await setTimeout(delay)
 }
 
 // 複数のHTTPリクエストをランダムなタイミングで実行するヘルパー関数

@@ -1,5 +1,3 @@
-import { setTimeout } from 'timers/promises'
-
 /**
  * シード可能な疑似乱数生成器
  * テスト用途で再現可能なランダム値を生成するために使用
@@ -44,14 +42,4 @@ export class SeededRandom {
     return shuffled
   }
 
-  /**
-   * ランダムな遅延を追加するヘルパー関数
-   * @param minMs 最小遅延時間（デフォルト: 1ms）
-   * @param maxMs 最大遅延時間（デフォルト: 50ms）
-   * @returns 遅延のPromise
-   */
-  async randomDelay(minMs: number = 1, maxMs: number = 50): Promise<void> {
-    const delay = this.nextInt(minMs, maxMs)
-    await setTimeout(delay)
-  }
 }
