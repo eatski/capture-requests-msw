@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
 import { setTimeout } from 'timers/promises'
-import { createRequestsCaptureHandler, RequestCapturer, type CapturedRequest } from '../src/index'
+import { createRequestsCaptureHandler, type CapturedRequest } from '../src/index'
 import { SeededRandom } from '../src/test-utils'
 import { executeRequestsRandomly } from './test-helpers'
 
@@ -14,8 +14,10 @@ describe('ランダムタイミングでの通信安定性テスト (Seed固定)
     const capturedRequests: CapturedRequest[] = []
     
     // キャプチャラーを作成
-    const capturer = new RequestCapturer((requests) => {
-      capturedRequests.push(...requests)
+    const { handler, checkpoint } = createRequestsCaptureHandler({
+      handler: (requests: CapturedRequest[]) => {
+        capturedRequests.push(...requests)
+      }
     })
     
     // 複数のハンドラーを設定
@@ -32,7 +34,7 @@ describe('ランダムタイミングでの通信安定性テスト (Seed固定)
       return HttpResponse.json({ success: true, receivedData: body })
     })
     
-    const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+    const captureHandler = http.all('*', handler)
     const server = setupServer(captureHandler, getUserHandler, getPostsHandler, postDataHandler)
     server.listen()
     
@@ -53,7 +55,7 @@ describe('ランダムタイミングでの通信安定性テスト (Seed固定)
       await executeRequestsRandomly(rng, requests)
       
       // チェックポイントを実行
-      capturer.checkpoint()
+      checkpoint()
       
       // 結果の検証（seed固定により常に同じ結果になる）
       expect(capturedRequests).toHaveLength(6)
@@ -101,9 +103,12 @@ describe('ランダムタイミングでの通信安定性テスト (Seed固定)
     const capturedGroups: CapturedRequest[][] = []
     
     // 自動チェックポイントを50msで設定
-    const capturer = new RequestCapturer((requests) => {
-      capturedGroups.push([...requests])
-    }, { timeoutMs: 50 })
+    const { handler, checkpoint } = createRequestsCaptureHandler({
+      handler: (requests: CapturedRequest[]) => {
+        capturedGroups.push([...requests])
+      },
+      autoCheckpoint: { timeoutMs: 50 }
+    })
     
     const userHandler = http.get('https://api.example.com/users/:id', ({ params }) => {
       return HttpResponse.json({ id: params.id, name: `ユーザー${params.id}` })
@@ -114,7 +119,7 @@ describe('ランダムタイミングでの通信安定性テスト (Seed固定)
       return HttpResponse.json({ eventId: Math.random(), data: body })
     })
     
-    const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+    const captureHandler = http.all('*', handler)
     const server = setupServer(captureHandler, userHandler, postHandler)
     server.listen()
     
@@ -173,8 +178,10 @@ describe('ランダムタイミングでの通信安定性テスト (Seed固定)
     const capturedRequests: CapturedRequest[] = []
     
     // キャプチャラーを作成
-    const capturer = new RequestCapturer((requests) => {
-      capturedRequests.push(...requests)
+    const { handler, checkpoint } = createRequestsCaptureHandler({
+      handler: (requests: CapturedRequest[]) => {
+        capturedRequests.push(...requests)
+      }
     })
     
     // ハンドラーを設定
@@ -187,7 +194,7 @@ describe('ランダムタイミングでの通信安定性テスト (Seed固定)
       return HttpResponse.json({ type: params.type, data: body })
     })
     
-    const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+    const captureHandler = http.all('*', handler)
     const server = setupServer(captureHandler, userHandler, dataHandler)
     server.listen()
     
@@ -215,7 +222,7 @@ describe('ランダムタイミングでの通信安定性テスト (Seed固定)
       await executeRequestsRandomly(rng, requests)
       
       // チェックポイントを実行
-      capturer.checkpoint()
+      checkpoint()
       
       // 結果の検証
       expect(capturedRequests).toHaveLength(15)
@@ -256,8 +263,10 @@ describe('ランダムタイミングでの通信安定性テスト (Seed固定)
     const capturedRequests: CapturedRequest[] = []
     
     // キャプチャラーを作成
-    const capturer = new RequestCapturer((requests) => {
-      capturedRequests.push(...requests)
+    const { handler, checkpoint } = createRequestsCaptureHandler({
+      handler: (requests: CapturedRequest[]) => {
+        capturedRequests.push(...requests)
+      }
     })
     
     // ハンドラーを設定
@@ -266,7 +275,7 @@ describe('ランダムタイミングでの通信安定性テスト (Seed固定)
     const cHandler = http.post('https://api.example.com/a', () => HttpResponse.json({ service: 'a', method: 'post' }))
     const dHandler = http.post('https://api.example.com/b', () => HttpResponse.json({ service: 'b', method: 'post' }))
     
-    const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+    const captureHandler = http.all('*', handler)
     const server = setupServer(captureHandler, aHandler, bHandler, cHandler, dHandler)
     server.listen()
     
@@ -285,7 +294,7 @@ describe('ランダムタイミングでの通信安定性テスト (Seed固定)
       await executeRequestsRandomly(rng, requests)
       
       // チェックポイントを実行
-      capturer.checkpoint()
+      checkpoint()
       
       // 結果の検証（URL優先、同URL内ではメソッド名でソート）
       expect(capturedRequests).toHaveLength(4)

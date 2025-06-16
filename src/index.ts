@@ -17,103 +17,70 @@ export interface AutoCheckpointOptions {
   waitForCheckpoint?: boolean
 }
 
-/**
- * リクエストをバッチでキャプチャし、指定されたタイミングで処理するクラス。
- */
-export class RequestCapturer {
-  private currentBatch: CapturedRequest[] = []
-  private handler: CapturedRequestsHandler
-  private autoCheckpointOptions?: AutoCheckpointOptions
-  private timeoutId?: NodeJS.Timeout
-  private pendingResponses: (() => void)[] = []
+export interface CreateRequestsCaptureHandlerOptions {
+  handler: CapturedRequestsHandler
+  autoCheckpoint?: AutoCheckpointOptions
+}
 
-  constructor(handler: CapturedRequestsHandler, autoCheckpointOptions?: AutoCheckpointOptions) {
-    this.handler = handler
-    this.autoCheckpointOptions = autoCheckpointOptions
-  }
+/**
+ * HTTPリクエストをキャプチャするためのハンドラー関数を作成します。
+ * @param options 設定オプション
+ * @returns handler関数とcheckpoint関数を含むオブジェクト
+ */
+export function createRequestsCaptureHandler(options: CreateRequestsCaptureHandlerOptions) {
+  const currentBatch: CapturedRequest[] = []
+  const { handler, autoCheckpoint } = options
+  let timeoutId: NodeJS.Timeout | undefined
+  let pendingResponses: (() => void)[] = []
 
   /**
    * 自動チェックポイントのタイマーを開始します。
    */
-  private startAutoCheckpointTimer(): void {
-    if (!this.autoCheckpointOptions) return
+  const startAutoCheckpointTimer = (): void => {
+    if (!autoCheckpoint) return
     
-    this.clearAutoCheckpointTimer()
-    this.timeoutId = setTimeout(() => {
-      this.checkpoint()
-    }, this.autoCheckpointOptions.timeoutMs)
+    clearAutoCheckpointTimer()
+    timeoutId = setTimeout(() => {
+      checkpoint()
+    }, autoCheckpoint.timeoutMs)
   }
 
   /**
    * 自動チェックポイントのタイマーをクリアします。
    */
-  private clearAutoCheckpointTimer(): void {
-    if (this.timeoutId) {
-      clearTimeout(this.timeoutId)
-      this.timeoutId = undefined
+  const clearAutoCheckpointTimer = (): void => {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+      timeoutId = undefined
     }
   }
-
-  /**
-   * リクエストを内部バッチに追加します。
-   * @param request キャプチャされたリクエストオブジェクト
-   */
-  addRequest(request: CapturedRequest): void {
-    this.currentBatch.push(request)
-    
-    // 自動チェックポイントのタイマーを再開始
-    this.startAutoCheckpointTimer()
-  }
-
-  /**
-   * waitForCheckpointが有効な場合にレスポンスを待機登録します。
-   * @returns 待機が完了するまでのPromise
-   */
-  waitForResponse(): Promise<void> {
-    if (!this.autoCheckpointOptions?.waitForCheckpoint) {
-      return Promise.resolve()
-    }
-
-    return new Promise<void>((resolve) => {
-      this.pendingResponses.push(resolve)
-    })
-  }
-
 
   /**
    * 蓄積されたリクエストを指定されたハンドラで処理し、バッチをリセットします。
    * リクエストはURLとメソッドでソートされてからハンドラに渡されます。
    */
-  checkpoint(): void {
-    this.clearAutoCheckpointTimer()
+  const checkpoint = (): void => {
+    clearAutoCheckpointTimer()
     
-    if (this.currentBatch.length > 0) {
-      const sortedRequests = [...this.currentBatch].sort((a, b) => {
+    if (currentBatch.length > 0) {
+      const sortedRequests = [...currentBatch].sort((a, b) => {
         if (a.url === b.url) {
           return a.method.localeCompare(b.method)
         }
         return a.url.localeCompare(b.url)
       })
       
-      this.handler(sortedRequests)
+      handler(sortedRequests)
     }
-    this.currentBatch = []
+    currentBatch.length = 0
     
     // 待機中のレスポンスを解放
-    const responses = this.pendingResponses
-    this.pendingResponses = []
+    const responses = pendingResponses
+    pendingResponses = []
     responses.forEach(resolve => resolve())
   }
 
-}
-
-/**
- * HTTPリクエストをキャプチャするためのハンドラー関数を作成します。
- * @param capturer RequestCapturerのインスタンス
- * @returns ハンドラー関数
- */
-export function createRequestsCaptureHandler(capturer: RequestCapturer) {
-  return async ({ request }: { request: Request }) => {
+  const requestHandler = async ({ request }: { request: Request }) => {
     const capturedRequest: CapturedRequest = {
       method: request.method,
       url: request.url,
@@ -129,12 +96,24 @@ export function createRequestsCaptureHandler(capturer: RequestCapturer) {
     }
 
     // バッチにリクエストを追加
-    capturer.addRequest(capturedRequest)
+    currentBatch.push(capturedRequest)
+    
+    // 自動チェックポイントのタイマーを再開始
+    startAutoCheckpointTimer()
     
     // waitForCheckpointが有効な場合、チェックポイントまで待機
-    await capturer.waitForResponse()
+    if (autoCheckpoint?.waitForCheckpoint) {
+      await new Promise<void>((resolve) => {
+        pendingResponses.push(resolve)
+      })
+    }
     
     // 常に別のハンドラーに処理を委譲（fallthrough）
     return undefined
+  }
+
+  return {
+    handler: requestHandler,
+    checkpoint
   }
 }

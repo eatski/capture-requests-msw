@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
 import { setTimeout } from 'timers/promises'
-import { createRequestsCaptureHandler, RequestCapturer, type CapturedRequest } from '../src/index'
+import { createRequestsCaptureHandler, type CapturedRequest } from '../src/index'
 
 describe('waitForCheckpoint機能', () => {
   it('waitForCheckpointが有効な場合、チェックポイントまで待機してからfallthroughする', async () => {
@@ -10,12 +10,12 @@ describe('waitForCheckpoint機能', () => {
     let handlerCallOrder: string[] = []
     
     // waitForCheckpointを有効にしたキャプチャラーを作成
-    const capturer = new RequestCapturer((requests) => {
-      handlerCallOrder.push('capture-handler')
-      capturedRequests.push(...requests)
-    }, { 
-      timeoutMs: 100,
-      waitForCheckpoint: true 
+    const { handler, checkpoint } = createRequestsCaptureHandler({
+      handler: (requests: CapturedRequest[]) => {
+        handlerCallOrder.push('capture-handler')
+        capturedRequests.push(...requests)
+      },
+      autoCheckpoint: { timeoutMs: 100, waitForCheckpoint: true }
     })
     
     // ユーザー側で定義するハンドラー
@@ -25,7 +25,7 @@ describe('waitForCheckpoint機能', () => {
     })
     
     // キャプチャハンドラーを最初に、ユーザーハンドラーを後に配置
-    const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+    const captureHandler = http.all('*', handler)
     const server = setupServer(captureHandler, userHandler)
     server.listen()
     
@@ -62,12 +62,12 @@ describe('waitForCheckpoint機能', () => {
     let handlerCallOrder: string[] = []
 
     // waitForCheckpointを無効にしたキャプチャラーを作成
-    const capturer = new RequestCapturer((requests) => {
-      handlerCallOrder.push('capture-handler')
-      capturedRequests.push(...requests)
-    }, {
-      timeoutMs: 100,
-      waitForCheckpoint: false
+    const { handler, checkpoint } = createRequestsCaptureHandler({
+      handler: (requests: CapturedRequest[]) => {
+        handlerCallOrder.push('capture-handler')
+        capturedRequests.push(...requests)
+      },
+      autoCheckpoint: { timeoutMs: 100, waitForCheckpoint: false }
     })
 
     // ユーザー側で定義するハンドラー
@@ -77,7 +77,7 @@ describe('waitForCheckpoint機能', () => {
     })
 
     // キャプチャハンドラーを最初に、ユーザーハンドラーを後に配置
-    const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+    const captureHandler = http.all('*', handler)
     const server = setupServer(captureHandler, userHandler)
     server.listen()
 
@@ -109,12 +109,12 @@ describe('waitForCheckpoint機能', () => {
     let handlerCallOrder: string[] = []
     
     // waitForCheckpointを有効にしたキャプチャラーを作成（自動チェックポイントなし）
-    const capturer = new RequestCapturer((requests) => {
-      handlerCallOrder.push('capture-handler')
-      capturedRequests.push(...requests)
-    }, { 
-      timeoutMs: 1000, // 長めに設定して自動実行を避ける
-      waitForCheckpoint: true 
+    const { handler, checkpoint } = createRequestsCaptureHandler({
+      handler: (requests: CapturedRequest[]) => {
+        handlerCallOrder.push('capture-handler')
+        capturedRequests.push(...requests)
+      },
+      autoCheckpoint: { timeoutMs: 1000, waitForCheckpoint: true } // 長めに設定して自動実行を避ける
     })
     
     // ユーザー側で定義するハンドラー
@@ -124,7 +124,7 @@ describe('waitForCheckpoint機能', () => {
     })
     
     // キャプチャハンドラーを最初に、ユーザーハンドラーを後に配置
-    const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+    const captureHandler = http.all('*', handler)
     const server = setupServer(captureHandler, userHandler)
     server.listen()
     
@@ -138,7 +138,7 @@ describe('waitForCheckpoint機能', () => {
       expect(capturedRequests).toHaveLength(0)
       
       // 手動でチェックポイントを実行
-      capturer.checkpoint()
+      checkpoint()
       
       // この時点でキャプチャハンドラーが実行されている
       expect(handlerCallOrder).toEqual(['capture-handler'])
@@ -159,11 +159,11 @@ describe('waitForCheckpoint機能', () => {
     const capturedRequests: CapturedRequest[] = []
     
     // waitForCheckpointを有効にしたキャプチャラーを作成
-    const capturer = new RequestCapturer((requests) => {
-      capturedRequests.push(...requests)
-    }, { 
-      timeoutMs: 100,
-      waitForCheckpoint: true 
+    const { handler, checkpoint } = createRequestsCaptureHandler({
+      handler: (requests: CapturedRequest[]) => {
+        capturedRequests.push(...requests)
+      },
+      autoCheckpoint: { timeoutMs: 100, waitForCheckpoint: true }
     })
     
     // ユーザー側で定義するハンドラー
@@ -177,7 +177,7 @@ describe('waitForCheckpoint機能', () => {
     })
     
     // キャプチャハンドラーを最初に、ユーザーハンドラーを後に配置
-    const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+    const captureHandler = http.all('*', handler)
     const server = setupServer(captureHandler, userHandler1, userHandler2)
     server.listen()
     
@@ -224,12 +224,12 @@ describe('waitForCheckpoint機能', () => {
     let handlerCallOrder: string[] = []
     
     // waitForCheckpointを有効にしたキャプチャラーを作成
-    const capturer = new RequestCapturer((requests) => {
-      handlerCallOrder.push('capture-handler')
-      capturedGroups.push(requests)
-    }, { 
-      timeoutMs: 100,
-      waitForCheckpoint: true 
+    const { handler, checkpoint } = createRequestsCaptureHandler({
+      handler: (requests: CapturedRequest[]) => {
+        handlerCallOrder.push('capture-handler')
+        capturedGroups.push(requests)
+      },
+      autoCheckpoint: { timeoutMs: 100, waitForCheckpoint: true }
     })
     
     // ユーザー側で定義するハンドラー
@@ -249,7 +249,7 @@ describe('waitForCheckpoint機能', () => {
     })
     
     // キャプチャハンドラーを最初に、ユーザーハンドラーを後に配置
-    const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+    const captureHandler = http.all('*', handler)
     const server = setupServer(captureHandler, userHandler1, userHandler2, userHandler3)
     server.listen()
     

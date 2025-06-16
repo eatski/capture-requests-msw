@@ -1,15 +1,17 @@
 import { describe, it, expect } from 'vitest'
 import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
-import { createRequestsCaptureHandler, RequestCapturer, type CapturedRequest } from '../src/index'
+import { createRequestsCaptureHandler, type CapturedRequest } from '../src/index'
 
 describe('基本的なリクエストキャプチャ機能', () => {
   it('リクエストをキャプチャしてfallthroughで他のハンドラーに委譲する', async () => {
     const capturedRequests: CapturedRequest[] = []
     
-    // キャプチャラーを作成
-    const capturer = new RequestCapturer((requests) => {
-      capturedRequests.push(...requests)
+    // キャプチャハンドラーを作成
+    const { handler, checkpoint } = createRequestsCaptureHandler({
+      handler: (requests: CapturedRequest[]) => {
+        capturedRequests.push(...requests)
+      }
     })
     
     // ユーザー側で定義するカスタムハンドラー
@@ -18,7 +20,7 @@ describe('基本的なリクエストキャプチャ機能', () => {
     })
     
     // キャプチャハンドラーを最初に、ユーザーハンドラーを後に配置
-    const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+    const captureHandler = http.all('*', handler)
     const server = setupServer(captureHandler, userHandler)
     server.listen()
     
@@ -27,7 +29,7 @@ describe('基本的なリクエストキャプチャ機能', () => {
       const data = await response.json()
       
       // リクエストの処理
-      capturer.checkpoint()
+      checkpoint()
       
       // リクエストがキャプチャされている
       expect(capturedRequests).toHaveLength(1)
@@ -46,9 +48,11 @@ describe('基本的なリクエストキャプチャ機能', () => {
   it('POSTリクエストをキャプチャしてfallthroughで他のハンドラーに委譲する', async () => {
     const capturedRequests: CapturedRequest[] = []
     
-    // キャプチャラーを作成
-    const capturer = new RequestCapturer((requests) => {
-      capturedRequests.push(...requests)
+    // キャプチャハンドラーを作成
+    const { handler, checkpoint } = createRequestsCaptureHandler({
+      handler: (requests: CapturedRequest[]) => {
+        capturedRequests.push(...requests)
+      }
     })
     
     // ユーザー側で定義するカスタムハンドラー
@@ -62,7 +66,7 @@ describe('基本的なリクエストキャプチャ機能', () => {
     })
     
     // キャプチャハンドラーを最初に、ユーザーハンドラーを後に配置
-    const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+    const captureHandler = http.all('*', handler)
     const server = setupServer(captureHandler, userHandler)
     server.listen()
     
@@ -76,7 +80,7 @@ describe('基本的なリクエストキャプチャ機能', () => {
       const data = await response.json()
       
       // リクエストの処理
-      capturer.checkpoint()
+      checkpoint()
       
       // リクエストがキャプチャされている
       expect(capturedRequests).toHaveLength(1)
@@ -100,9 +104,11 @@ describe('基本的なリクエストキャプチャ機能', () => {
   it('複数のリクエストがキャプチャされて適切なハンドラーに委譲される', async () => {
     const capturedRequests: CapturedRequest[] = []
     
-    // キャプチャラーを作成
-    const capturer = new RequestCapturer((requests) => {
-      capturedRequests.push(...requests)
+    // キャプチャハンドラーを作成
+    const { handler, checkpoint } = createRequestsCaptureHandler({
+      handler: (requests: CapturedRequest[]) => {
+        capturedRequests.push(...requests)
+      }
     })
     
     // ユーザー側で定義する複数のハンドラー
@@ -118,7 +124,7 @@ describe('基本的なリクエストキャプチャ機能', () => {
     })
     
       // キャプチャハンドラーを最初に、他のハンドラーを後に配置
-      const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+      const captureHandler = http.all('*', handler)
       const server = setupServer(captureHandler, getUserHandler, getPostsHandler)
     server.listen()
     
@@ -131,7 +137,7 @@ describe('基本的なリクエストキャプチャ機能', () => {
       const postsData = await postsResponse.json()
       
       // リクエストの処理
-      capturer.checkpoint()
+      checkpoint()
       
       // 両方のリクエストがキャプチャされている
       expect(capturedRequests).toHaveLength(2)
@@ -157,17 +163,19 @@ describe('基本的なリクエストキャプチャ機能', () => {
   it('キャプチャしたリクエストに対してカスタム処理を実行できる', async () => {
     const processedRequests: any[] = []
     
-    // キャプチャラーを作成（カスタム処理付き）
-    const capturer = new RequestCapturer((requests) => {
-      requests.forEach(request => {
-        const url = new URL(request.url)
-        processedRequests.push({
-          method: request.method,
-          pathname: url.pathname,
-          hasBody: !!request.body,
-          timestamp: Date.now()
+    // キャプチャハンドラーを作成（カスタム処理付き）
+    const { handler, checkpoint } = createRequestsCaptureHandler({
+      handler: (requests: CapturedRequest[]) => {
+        requests.forEach(request => {
+          const url = new URL(request.url)
+          processedRequests.push({
+            method: request.method,
+            pathname: url.pathname,
+            hasBody: !!request.body,
+            timestamp: Date.now()
+          })
         })
-      })
+      }
     })
     
     // ユーザー側で定義するハンドラー
@@ -176,7 +184,7 @@ describe('基本的なリクエストキャプチャ機能', () => {
     })
     
     // キャプチャハンドラーを最初に、ユーザーハンドラーを後に配置
-    const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+    const captureHandler = http.all('*', handler)
     const server = setupServer(captureHandler, userHandler)
     server.listen()
     
@@ -185,7 +193,7 @@ describe('基本的なリクエストキャプチャ機能', () => {
       const data = await response.json()
       
       // リクエストの処理
-      capturer.checkpoint()
+      checkpoint()
       
       // カスタム処理が実行されている
       expect(processedRequests).toHaveLength(1)

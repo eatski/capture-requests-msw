@@ -2,22 +2,25 @@ import { describe, it, expect } from 'vitest'
 import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
 import { setTimeout } from 'timers/promises'
-import { createRequestsCaptureHandler, RequestCapturer, type CapturedRequest } from '../src/index'
+import { createRequestsCaptureHandler, type CapturedRequest } from '../src/index'
 
 describe('自動チェックポイント機能', () => {
   it('指定したミリ秒数後に自動でチェックポイントが実行される', async () => {
     const capturedRequests: CapturedRequest[] = []
     
     // 自動チェックポイントを100msで設定
-    const capturer = new RequestCapturer((requests) => {
-      capturedRequests.push(...requests)
-    }, { timeoutMs: 100 })
+    const { handler } = createRequestsCaptureHandler({
+      handler: (requests: CapturedRequest[]) => {
+        capturedRequests.push(...requests)
+      },
+      autoCheckpoint: { timeoutMs: 100 }
+    })
     
     const userHandler = http.get('https://api.example.com/test', () => {
       return HttpResponse.json({ success: true })
     })
     
-    const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+    const captureHandler = http.all('*', handler)
     const server = setupServer(captureHandler, userHandler)
     server.listen()
     
@@ -44,15 +47,18 @@ describe('自動チェックポイント機能', () => {
     const capturedRequests: CapturedRequest[] = []
     
     // 自動チェックポイントを100msで設定
-    const capturer = new RequestCapturer((requests) => {
-      capturedRequests.push(...requests)
-    }, { timeoutMs: 100 })
+    const { handler } = createRequestsCaptureHandler({
+      handler: (requests: CapturedRequest[]) => {
+        capturedRequests.push(...requests)
+      },
+      autoCheckpoint: { timeoutMs: 100 }
+    })
     
     const userHandler = http.get('https://api.example.com/test', () => {
       return HttpResponse.json({ success: true })
     })
     
-    const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+    const captureHandler = http.all('*', handler)
     const server = setupServer(captureHandler, userHandler)
     server.listen()
     
@@ -86,15 +92,18 @@ describe('自動チェックポイント機能', () => {
     const capturedRequests: CapturedRequest[] = []
     
     // 自動チェックポイントを100msで設定
-    const capturer = new RequestCapturer((requests) => {
-      capturedRequests.push(...requests)
-    }, { timeoutMs: 100 })
+    const { handler, checkpoint } = createRequestsCaptureHandler({
+      handler: (requests: CapturedRequest[]) => {
+        capturedRequests.push(...requests)
+      },
+      autoCheckpoint: { timeoutMs: 100 }
+    })
     
     const userHandler = http.get('https://api.example.com/test', () => {
       return HttpResponse.json({ success: true })
     })
     
-    const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+    const captureHandler = http.all('*', handler)
     const server = setupServer(captureHandler, userHandler)
     server.listen()
     
@@ -106,7 +115,7 @@ describe('自動チェックポイント機能', () => {
       await setTimeout(50)
       
       // 手動でチェックポイントを実行
-      capturer.checkpoint()
+      checkpoint()
       
       // 1つのリクエストが処理されている
       expect(capturedRequests).toHaveLength(1)
@@ -134,15 +143,17 @@ describe('自動チェックポイント機能', () => {
     const capturedRequests: CapturedRequest[] = []
     
     // 自動チェックポイント設定なし
-    const capturer = new RequestCapturer((requests) => {
-      capturedRequests.push(...requests)
+    const { handler, checkpoint } = createRequestsCaptureHandler({
+      handler: (requests: CapturedRequest[]) => {
+        capturedRequests.push(...requests)
+      }
     })
     
     const userHandler = http.get('https://api.example.com/test', () => {
       return HttpResponse.json({ success: true })
     })
     
-    const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+    const captureHandler = http.all('*', handler)
     const server = setupServer(captureHandler, userHandler)
     server.listen()
     
@@ -157,7 +168,7 @@ describe('自動チェックポイント機能', () => {
       expect(capturedRequests).toHaveLength(0)
       
       // 手動でチェックポイントを実行
-      capturer.checkpoint()
+      checkpoint()
       
       // リクエストが処理されている
       expect(capturedRequests).toHaveLength(1)

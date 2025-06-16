@@ -1,15 +1,17 @@
 import { describe, it, expect } from 'vitest'
 import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
-import { createRequestsCaptureHandler, RequestCapturer, type CapturedRequest } from '../src/index'
+import { createRequestsCaptureHandler, type CapturedRequest } from '../src/index'
 
 describe('リクエストのグループ化', () => {
   it('複数のリクエストをグループで処理できる', async () => {
     const processedGroups: CapturedRequest[][] = []
     
     // キャプチャラーを作成
-    const capturer = new RequestCapturer((requests) => {
-      processedGroups.push([...requests])
+    const { handler, checkpoint } = createRequestsCaptureHandler({
+      handler: (requests: CapturedRequest[]) => {
+        processedGroups.push([...requests])
+      }
     })
     
     // ユーザー側で定義するハンドラー
@@ -22,7 +24,7 @@ describe('リクエストのグループ化', () => {
     })
     
     // キャプチャハンドラーを作成
-    const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+    const captureHandler = http.all('*', handler)
     const server = setupServer(captureHandler, userHandler, postsHandler)
     server.listen()
     
@@ -35,7 +37,7 @@ describe('リクエストのグループ化', () => {
       expect(processedGroups).toHaveLength(0)
       
       // リクエストの処理
-      capturer.checkpoint()
+      checkpoint()
       
       // 処理が実行されている
       expect(processedGroups).toHaveLength(1)
@@ -53,8 +55,10 @@ describe('リクエストのグループ化', () => {
     const processedGroups: CapturedRequest[][] = []
     
     // キャプチャラーを作成
-    const capturer = new RequestCapturer((requests) => {
-      processedGroups.push([...requests])
+    const { handler, checkpoint } = createRequestsCaptureHandler({
+      handler: (requests: CapturedRequest[]) => {
+        processedGroups.push([...requests])
+      }
     })
     
     // ユーザー側で定義するハンドラー
@@ -63,7 +67,7 @@ describe('リクエストのグループ化', () => {
     })
     
     // キャプチャハンドラーを作成
-    const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+    const captureHandler = http.all('*', handler)
     const server = setupServer(captureHandler, userHandler)
     server.listen()
     
@@ -71,11 +75,11 @@ describe('リクエストのグループ化', () => {
       // 最初のグループ
       await fetch('https://api.example.com/users/1')
       await fetch('https://api.example.com/users/2')
-      capturer.checkpoint()
+      checkpoint()
       
       // 2番目のグループ
       await fetch('https://api.example.com/users/3')
-      capturer.checkpoint()
+      checkpoint()
       
       // 2つのグループが処理されている
       expect(processedGroups).toHaveLength(2)
@@ -97,8 +101,10 @@ describe('リクエストのグループ化', () => {
     const processedGroups: CapturedRequest[][] = []
     
     // キャプチャラーを作成
-    const capturer = new RequestCapturer((requests) => {
-      processedGroups.push([...requests])
+    const { handler, checkpoint } = createRequestsCaptureHandler({
+      handler: (requests: CapturedRequest[]) => {
+        processedGroups.push([...requests])
+      }
     })
     
     // ユーザー側で定義するハンドラー
@@ -115,7 +121,7 @@ describe('リクエストのグループ化', () => {
     })
     
     // キャプチャハンドラーを作成
-    const captureHandler = http.all('*', createRequestsCaptureHandler(capturer))
+    const captureHandler = http.all('*', handler)
     const server = setupServer(captureHandler, getHandler, postHandler, userHandler)
     server.listen()
     
@@ -125,7 +131,7 @@ describe('リクエストのグループ化', () => {
       await fetch('https://api.example.com/data', { method: 'POST', body: 'test' })
       await fetch('https://api.example.com/data')
       
-      capturer.checkpoint()
+      checkpoint()
       
       expect(processedGroups).toHaveLength(1)
       expect(processedGroups[0]).toHaveLength(3)
@@ -149,9 +155,11 @@ describe('リクエストのグループ化', () => {
 
   it('リクエストがない場合ハンドラが呼ばれない', async () => {
     const groups: CapturedRequest[][] = []
-    const capturer = new RequestCapturer((requests) => groups.push([...requests]))
+    const { handler, checkpoint } = createRequestsCaptureHandler({
+      handler: (requests: CapturedRequest[]) => groups.push([...requests])
+    })
     
-    capturer.checkpoint()
+    checkpoint()
     expect(groups).toHaveLength(0)
   })
 })
