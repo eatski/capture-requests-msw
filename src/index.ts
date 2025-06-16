@@ -1,6 +1,3 @@
-import { http } from 'msw'
-import type { RequestHandler } from 'msw'
-
 export interface CapturedRequest {
   method: string
   url: string
