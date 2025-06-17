@@ -294,14 +294,14 @@ interface CapturedRequest {
 type CapturedRequestsHandler = (requests: CapturedRequest[]) => void
 ```
 
-### `AutoCheckpointOptions`
+### `CheckpointOptions`
 
-自動チェックポイント機能の設定を定義するインターフェースです。
+チェックポイント機能の設定を定義するインターフェースです。
 
 ```typescript
-interface AutoCheckpointOptions {
+interface CheckpointOptions {
   timeoutMs: number  // リクエストがない状態がこのミリ秒数続いた場合に自動でチェックポイントを作成
-  waitForCheckpoint?: boolean  // trueの場合、チェックポイントが実行されるまでresponse(fallthrough)を待機
+  waitForCheckpoint?: boolean  // trueの場合、チェックポイントが実行されるまでレスポンスを待機
 }
 ```
 
@@ -311,12 +311,12 @@ interface AutoCheckpointOptions {
 
 **コンストラクタ:**
 ```typescript
-new RequestCapturer(handler: CapturedRequestsHandler, autoCheckpointOptions?: AutoCheckpointOptions)
+new RequestCapturer(handler: CapturedRequestsHandler, options?: CheckpointOptions)
 ```
 
 **パラメータ:**
 - `handler: CapturedRequestsHandler` - リクエストを処理するハンドラ関数
-- `autoCheckpointOptions?: AutoCheckpointOptions` - オプション: 自動チェックポイント設定
+- `options?: CheckpointOptions` - オプション: チェックポイント設定
 
 **メソッド:**
 - `addRequest(request: CapturedRequest): void` - リクエストを内部バッファに追加します。

@@ -13,7 +13,7 @@ describe('自動チェックポイント機能', () => {
       handler: (requests: CapturedRequest[]) => {
         capturedRequests.push(...requests)
       },
-      autoCheckpoint: { timeoutMs: 100 }
+      options: { timeoutMs: 100 }
     })
     
     const userHandler = http.get('https://api.example.com/test', () => {
@@ -51,7 +51,7 @@ describe('自動チェックポイント機能', () => {
       handler: (requests: CapturedRequest[]) => {
         capturedRequests.push(...requests)
       },
-      autoCheckpoint: { timeoutMs: 100 }
+      options: { timeoutMs: 100 }
     })
     
     const userHandler = http.get('https://api.example.com/test', () => {
@@ -96,7 +96,7 @@ describe('自動チェックポイント機能', () => {
       handler: (requests: CapturedRequest[]) => {
         capturedRequests.push(...requests)
       },
-      autoCheckpoint: { timeoutMs: 100 }
+      options: { timeoutMs: 100 }
     })
     
     const userHandler = http.get('https://api.example.com/test', () => {

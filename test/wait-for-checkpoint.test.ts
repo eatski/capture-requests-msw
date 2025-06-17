@@ -15,7 +15,7 @@ describe('waitForCheckpoint機能', () => {
         handlerCallOrder.push('capture-handler')
         capturedRequests.push(...requests)
       },
-      autoCheckpoint: { timeoutMs: 100, waitForCheckpoint: true }
+      options: { timeoutMs: 100, waitForCheckpoint: true }
     })
     
     // ユーザー側で定義するハンドラー
@@ -67,7 +67,7 @@ describe('waitForCheckpoint機能', () => {
         handlerCallOrder.push('capture-handler')
         capturedRequests.push(...requests)
       },
-      autoCheckpoint: { timeoutMs: 100, waitForCheckpoint: false }
+      options: { timeoutMs: 100, waitForCheckpoint: false }
     })
 
     // ユーザー側で定義するハンドラー
@@ -114,7 +114,7 @@ describe('waitForCheckpoint機能', () => {
         handlerCallOrder.push('capture-handler')
         capturedRequests.push(...requests)
       },
-      autoCheckpoint: { timeoutMs: 1000, waitForCheckpoint: true } // 長めに設定して自動実行を避ける
+      options: { timeoutMs: 1000, waitForCheckpoint: true } // 長めに設定して自動実行を避ける
     })
     
     // ユーザー側で定義するハンドラー
@@ -163,7 +163,7 @@ describe('waitForCheckpoint機能', () => {
       handler: (requests: CapturedRequest[]) => {
         capturedRequests.push(...requests)
       },
-      autoCheckpoint: { timeoutMs: 100, waitForCheckpoint: true }
+      options: { timeoutMs: 100, waitForCheckpoint: true }
     })
     
     // ユーザー側で定義するハンドラー
@@ -229,7 +229,7 @@ describe('waitForCheckpoint機能', () => {
         handlerCallOrder.push('capture-handler')
         capturedGroups.push(requests)
       },
-      autoCheckpoint: { timeoutMs: 100, waitForCheckpoint: true }
+      options: { timeoutMs: 100, waitForCheckpoint: true }
     })
     
     // ユーザー側で定義するハンドラー

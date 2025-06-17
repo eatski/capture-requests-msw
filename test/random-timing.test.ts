@@ -107,7 +107,7 @@ describe('ランダムタイミングでの通信安定性テスト (Seed固定)
       handler: (requests: CapturedRequest[]) => {
         capturedGroups.push([...requests])
       },
-      autoCheckpoint: { timeoutMs: 50 }
+      options: { timeoutMs: 50 }
     })
     
     const userHandler = http.get('https://api.example.com/users/:id', ({ params }) => {

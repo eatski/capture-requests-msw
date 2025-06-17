@@ -6,20 +6,20 @@ export interface CapturedRequest {
 
 export type CapturedRequestsHandler = (requests: CapturedRequest[]) => void
 
-export interface AutoCheckpointOptions {
+export interface CheckpointOptions {
   /**
    * リクエストがない状態がこのミリ秒数続いた場合に自動でチェックポイントを作成します。
    */
   timeoutMs: number
   /**
-   * trueの場合、チェックポイントが実行されるまでレスポンス(fallthrough)を待機します。
+   * trueの場合、チェックポイントが実行されるまでレスポンスを待機します。
    */
   waitForCheckpoint?: boolean
 }
 
 export interface CreateRequestsCaptureHandlerOptions {
   handler: CapturedRequestsHandler
-  autoCheckpoint?: AutoCheckpointOptions
+  options?: CheckpointOptions
 }
 
 /**
@@ -29,7 +29,7 @@ export interface CreateRequestsCaptureHandlerOptions {
  */
 export function createRequestsCaptureHandler(options: CreateRequestsCaptureHandlerOptions) {
   const currentBatch: CapturedRequest[] = []
-  const { handler, autoCheckpoint } = options
+  const { handler, options: autoCheckpoint } = options
   let timeoutId: NodeJS.Timeout | undefined
   let pendingResponses: (() => void)[] = []
 
